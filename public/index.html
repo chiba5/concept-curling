@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>関連度バトル（LLM採点版）</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <header>
+        <h1>関連度バトル（LLM採点）</h1>
+        <p class="subtitle">3人×各2ターンで概念を出し，LLMが関連度を0〜100で採点する（高いほど浅い）．</p>
+    </header>
+
+    <main>
+        <!-- ターン進行・概念入力 -->
+        <section class="panel">
+            <div class="turn-box">
+                <div id="turnInfo" class="turn-info">第1手：プレイヤー1のターン</div>
+                <div class="input-row">
+                    <input id="conceptInput" class="input" placeholder="概念を入力…" maxlength="40" />
+                    <button id="submitBtn" class="btn primary">登録</button>
+                </div>
+                <div class="meta-row">
+                    <label><input type="checkbox" id="autoAdvance" checked /> 登録後に入力欄をクリア</label>
+                    <button id="undoBtn" class="btn ghost">一手戻す</button>
+                    <button id="resetBtn" class="btn ghost">リセット</button>
+                </div>
+            </div>
+            <div class="status">
+                <div>
+                    <h3>登録済みの概念</h3>
+                    <ol id="conceptList" class="concept-list"></ol>
+                </div>
+                <div class="legend">
+                    <span class="pill p1">P1</span>
+                    <span class="pill p2">P2</span>
+                    <span class="pill p3">P3</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 関連度表 -->
+        <section class="panel">
+            <h2>関連度表（LLMスコア）</h2>
+            <div id="llmStatus" class="note"></div>
+            <div class="table-wrap">
+                <table id="matrix" class="matrix"></table>
+            </div>
+        </section>
+
+        <!-- スコアと勝敗 -->
+        <section class="panel">
+            <h2>スコアと勝敗判定</h2>
+            <div id="scoreBoard" class="scores"></div>
+            <div id="winner" class="winner"></div>
+        </section>
+    </main>
+
+    <footer>
+        <details>
+            <summary>LLMへの採点プロンプト</summary>
+            <pre id="promptExample" class="pre"></pre>
+        </details>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
