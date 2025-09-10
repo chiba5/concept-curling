@@ -106,17 +106,50 @@ function render() {
     if (canAtk && atkEl.placeholder.includes('提出済')) atkEl.placeholder = '攻撃用概念を入力…';
 
     // ログ
+    // ログ
     logEl.innerHTML = '';
-    if (state.history?.turns?.length) {
+    if (state.history) {
         state.history.turns.forEach(turn => {
-            const wrap = document.createElement('div'); wrap.className = 'panel';
+            const wrap = document.createElement('div');
+            wrap.className = 'panel';
+
             const a = (turn.attacks || []).map(x => `P${x.seat}「${x.concept}」`).join(' / ');
             const d = (turn.destroys || []).map(x => `[破壊] P${x.owner} ${x.which === 'secret' ? '(SECRET)' : ''}「${x.concept}」`).join('　');
             const r = (turn.reveals || []).map(x => `[公開] P${x.owner} SECRET→「${x.concept}」`).join('　');
-            wrap.innerHTML = `<strong>R${turn.round}</strong><br/>攻撃：${a || '—'}<br/>${d || ''}<br/>${r || ''}`;
+
+            // ★ 関係度テーブル（details）
+            let tableHtml = '';
+            if (Array.isArray(turn.details) && turn.details.length) {
+                const rows = turn.details.map(row => `
+        <tr>
+          <td>P${row.atkSeat}</td>
+          <td>「${row.atkConcept}」</td>
+          <td>P${row.targetOwner}</td>
+          <td>${row.targetWhich === 'secret' ? 'SECRET' : 'NORMAL'}</td>
+          <td>${row.targetConcept ? `「${row.targetConcept}」` : '—'}</td>
+          <td style="text-align:right">${row.score}</td>
+        </tr>
+      `).join('');
+                tableHtml = `
+        <table class="matrix" style="margin-top:6px;min-width:480px">
+          <tr>
+            <th>攻撃者</th><th>攻撃概念</th><th>対象P</th><th>種別</th><th>ライフ概念</th><th>スコア</th>
+          </tr>
+          ${rows}
+        </table>
+      `;
+            }
+
+            wrap.innerHTML = `
+      <strong>R${turn.round}</strong>
+      <br/>攻撃：${a || '—'}
+      <br/>${d || ''}<br/>${r || ''}
+      ${tableHtml}
+    `;
             logEl.appendChild(wrap);
         });
     }
+
 }
 
 function renderPrivate() {

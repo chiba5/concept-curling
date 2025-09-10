@@ -400,13 +400,16 @@ async function resolveTurn() {
   const attacks = aliveSeats().map(seat => ({ seat, concept: game.players[seat].attack }));
   const destroys = [];
   const reveals = [];
+  const details = []; // ← 追加：ログ用の詳細テーブル（攻撃×対象ライフのスコア）
 
   // 攻撃 × 全ライフを列挙
   const lifeTargets = [];
   for (const owner of [1, 2, 3]) {
     const target = game.players[owner];
     if (!target.alive) continue;
-    for (const con of target.life.normals) lifeTargets.push({ owner, which: 'normal', concept: con });
+    for (const con of target.life.normals) {
+      lifeTargets.push({ owner, which: 'normal', concept: con });
+    }
     if (target.life.secret && !target.life.secret._destroyed) {
       lifeTargets.push({ owner, which: 'secret', concept: target.life.secret.concept });
     }
@@ -417,11 +420,33 @@ async function resolveTurn() {
   for (const atk of attacks) for (const lt of lifeTargets) pairs.push({ a: atk.concept, b: lt.concept });
   const scores = await scorePairsLLM(pairs);
 
-  // 閾値判定（10 <= score < 50 で破壊）
+  // ログ用ラベル（SECRETは未公開なら伏せる）
+  const labelFor = (lt) => {
+    if (lt.which === 'secret') {
+      const p = game.players[lt.owner];
+      const shown = (p.life.secret && p.life.secret._revealed) ? p.life.secret.concept : 'SECRET';
+      return shown;
+    }
+    return lt.concept;
+  };
+
+  // 閾値判定（10 <= score < 50 で破壊）＆詳細ログ作成
   let k = 0;
   for (const atk of attacks) {
     for (const lt of lifeTargets) {
       const sc = scores[k++];
+
+      // まず詳細ログ（公開用）。SECRETは未公開なら伏せ名で記録
+      details.push({
+        atkSeat: atk.seat,
+        atkConcept: atk.concept,
+        targetOwner: lt.owner,
+        targetWhich: lt.which,                    // 'normal' | 'secret'
+        targetConcept: labelFor(lt),              // 未公開SECRETなら 'SECRET'
+        score: sc
+      });
+
+      // その後、破壊判定
       if (sc >= 10 && sc < 50) {
         const target = game.players[lt.owner];
         if (lt.which === 'normal') {
@@ -436,7 +461,8 @@ async function resolveTurn() {
             target.life.secret._destroyed = true;
             target.lifeCount--;
             destroys.push({ owner: lt.owner, which: 'secret', concept: lt.concept });
-            target.life.secret._revealed = true; // 破壊と同時に公開
+            // 破壊と同時に公開
+            target.life.secret._revealed = true;
             reveals.push({ owner: lt.owner, concept: lt.concept });
           }
         }
@@ -451,14 +477,15 @@ async function resolveTurn() {
     p.attack = null;
   }
 
-  // ログ
-  game.history.turns.push({ round: game.round, attacks, destroys, reveals });
+  // ログ（detailsを追加！）
+  game.history.turns.push({ round: game.round, attacks, destroys, reveals, details });
 
   // 勝敗 & 次ターン
   if (maybeFinish()) { broadcast(); return; }
   game.round += 1;
   broadcast();
 }
+
 
 
 function maybeFinish() {
