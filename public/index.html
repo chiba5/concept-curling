@@ -4,42 +4,72 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>概念オンライン（同時公開ラウンド）</title>
+    <title>概念オンライン：新ルール土台</title>
     <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
     <header>
-        <h1>同時公開ラウンド（3人×2R）</h1>
-        <p class="subtitle">各ラウンドで非公開提出→3人揃った瞬間に同時公開＆評価である．</p>
+        <h1>概念オンライン：新ルール土台</h1>
+        <p class="subtitle">3人 / テーマ→5非公開→ライフ選抜→同時攻撃→破壊判定</p>
     </header>
 
-    <main class="panel">
+    <main class="panel" style="display:grid;gap:12px">
         <div class="row">
             <input id="name" class="input" placeholder="あなたの名前（任意）" />
             <button id="join" class="btn primary">入室</button>
-            <button id="reset" class="btn ghost">全体リセット</button>
+            <button id="reset" class="btn ghost">リセット</button>
         </div>
 
-        <div id="status" class="note"></div>
+        <div id="phase" class="note"></div>
 
         <section class="panel">
-            <h2>現在のラウンド提出</h2>
-            <div class="row">
-                <input id="concept" class="input" placeholder="このラウンドの概念を入力…" />
-                <button id="submit" class="btn primary">提出</button>
+            <h2>テーマ（公開）</h2>
+            <div id="themes"></div>
+        </section>
+
+        <section class="panel">
+            <h2>あなた専用（非公開エリア）</h2>
+
+            <div id="p5InputArea">
+                <h3>5つの概念を改行区切りで入力</h3>
+                <textarea id="p5" class="input" rows="6" placeholder="例：\n波長\n煮詰め\n石英\n重力孔\n透明標本"></textarea>
+                <div class="row">
+                    <button id="submitP5" class="btn primary">5件提出</button>
+                </div>
             </div>
-            <ul id="seats"></ul>
+
+            <div id="p5ScoreArea" style="display:none">
+                <h3>あなたの 5×2 スコア（非公開）</h3>
+                <table id="p5table" class="matrix"></table>
+
+                <h3>ライフ選抜（1〜3件／合計 <span id="limitText">150</span> 以下のみ有効）</h3>
+                <div id="lifePick"></div>
+                <div class="row">
+                    <button id="pickBtn" class="btn primary">ライフ確定</button>
+                </div>
+            </div>
         </section>
 
         <section class="panel">
-            <h2>公開済みラウンド履歴</h2>
-            <div id="history"></div>
+            <h2>公開ボード</h2>
+            <div id="players"></div>
+
+            <h3>攻撃（同時入力）</h3>
+            <div class="row">
+                <input id="atk" class="input" placeholder="攻撃用概念を入力…" />
+                <button id="atkBtn" class="btn primary">攻撃を提出</button>
+            </div>
+
+            <h3>ログ</h3>
+            <div id="log"></div>
         </section>
+
+        <div id="error" class="note" style="color:#ffb4b4"></div>
     </main>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="script.js"></script>
+    <script src="/socket.io/socket.io.js" defer></script>
+    <script src="script.js" defer></script>
 </body>
 
 </html>
