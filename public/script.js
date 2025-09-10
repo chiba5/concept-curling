@@ -28,6 +28,73 @@ submitP5.onclick = () => {
     socket.emit('submitPrivateFive', lines);
 };
 
+// 攻撃×ライフのピボット表を作る
+function buildTurnMatrix(turn) {
+    if (!Array.isArray(turn.details) || !turn.details.length) return '';
+
+    // 列（ライフ）の抽出：ownerごとに NORMAL → SECRET の順
+    const cols = [];
+    const colKey = (r) =>
+        r.targetWhich === 'secret' ? `S|${r.targetOwner}` : `N|${r.targetOwner}|${r.targetConcept}`;
+    const colLabel = (r) => {
+        if (r.targetWhich === 'secret') {
+            // 未公開は「P◯ SECRET」、公開済みなら概念名を見せる
+            return (r.targetConcept && r.targetConcept !== 'SECRET')
+                ? `P${r.targetOwner} ${r.targetConcept}`
+                : `P${r.targetOwner} SECRET`;
+        }
+        return `P${r.targetOwner} ${r.targetConcept}`;
+    };
+    turn.details.forEach(r => {
+        const key = colKey(r);
+        if (!cols.find(c => c.key === key)) {
+            cols.push({ key, label: colLabel(r), owner: r.targetOwner, which: r.targetWhich });
+        }
+    });
+    // 並びを P1→P2→P3、NORMAL→SECRET に整える
+    cols.sort((a, b) => (a.owner - b.owner) || (a.which === 'secret') - (b.which === 'secret'));
+
+    // 行（攻撃）の抽出：座席→入力順で安定化
+    const rows = [];
+    const rowKey = (r) => `A|${r.atkSeat}|${r.atkConcept}`;
+    turn.details.forEach(r => {
+        const key = rowKey(r);
+        if (!rows.find(x => x.key === key)) {
+            rows.push({ key, atkSeat: r.atkSeat, atkConcept: r.atkConcept });
+        }
+    });
+    rows.sort((a, b) => (a.atkSeat - b.atkSeat) || a.atkConcept.localeCompare(b.atkConcept, 'ja'));
+
+    // 値マップ
+    const cell = new Map();
+    turn.details.forEach(r => {
+        cell.set(rowKey(r) + '|' + colKey(r), r.score);
+    });
+
+    // HTML
+    const thead = `<tr>
+    <th>攻撃者</th><th>攻撃概念</th>
+    ${cols.map(c => `<th>${c.label}</th>`).join('')}
+  </tr>`;
+
+    const tbody = rows.map(row => {
+        const cells = cols.map(c => {
+            const v = cell.get(row.key + '|' + c.key);
+            const text = (v == null) ? '—' : v;
+            const cls = (v == null) ? '' : scoreClass(Number(v));
+            return `<td class="num ${cls}">${text}</td>`;
+        }).join('');
+        return `<tr>
+      <td>P${row.atkSeat}</td>
+      <td>「${row.atkConcept}」</td>
+      ${cells}
+    </tr>`;
+    }).join('');
+
+    return `<table class="matrix" style="margin-top:6px">${thead}${tbody}</table>`;
+}
+
+
 // ライフ確定
 pickBtn.onclick = () => {
     const checks = [...lifePick.querySelectorAll('input[type=checkbox]:checked')];
@@ -103,58 +170,33 @@ function render() {
     // ログ
     logEl.innerHTML = '';
     if (state.history?.turns?.length) {
+        // 新しいラウンドを上に表示
         state.history.turns.slice().reverse().forEach(turn => {
             const wrap = document.createElement('div'); wrap.className = 'panel';
+
             const a = (turn.attacks || []).map(x => `P${x.seat}「${x.concept}」`).join(' / ');
             const d = (turn.destroys || []).map(x => `[破壊] P${x.owner} ${x.which === 'secret' ? '(SECRET)' : ''}「${x.concept}」`).join('　');
             const r = (turn.reveals || []).map(x => `[公開] P${x.owner} SECRET→「${x.concept}」`).join('　');
 
-            // details table
-            let tableHtml = '';
-            if (Array.isArray(turn.details) && turn.details.length) {
-                const rows = turn.details.map(row => {
-                    const cls = scoreClass(Number(row.score) || 0);
-                    return `
-            <tr>
-              <td>P${row.atkSeat}</td>
-              <td>「${row.atkConcept}」</td>
-              <td>P${row.targetOwner}</td>
-              <td>${row.targetWhich === 'secret' ? 'SECRET' : 'NORMAL'}</td>
-              <td>${row.targetConcept ? `「${row.targetConcept}」` : '—'}</td>
-              <td class="num ${cls}">${row.score}</td>
-            </tr>
-          `;
-                }).join('');
-                tableHtml = `
-          <div class="panel" style="padding:10px; margin-top:8px;">
-            <table class="matrix">
-              <tr>
-                <th>攻撃者</th><th>攻撃概念</th><th>対象P</th><th>種別</th><th>ライフ概念</th><th>スコア</th>
-              </tr>
-              ${rows}
-            </table>
-          </div>
-        `;
-            }
+            // ★ ピボット表（縦=攻撃、横=ライフ、セル=スコア）
+            const matrix = buildTurnMatrix(turn);
 
-            // 折りたたみ
-            const detailsId = `dtl-${turn.round}-${Math.random().toString(36).slice(2, 7)}`;
+            // 折りたたみ可能に（任意）
+            const detailsId = `mtx-${turn.round}-${Math.random().toString(36).slice(2, 7)}`;
             wrap.innerHTML = `
-        <div class="row" style="justify-content:space-between;align-items:center;">
-          <div><strong>R${turn.round}</strong></div>
-          <div>
-            <button class="btn" data-toggle="${detailsId}">詳細を表示/非表示</button>
-          </div>
-        </div>
-        <div style="margin-top:6px">攻撃：${a || '—'}</div>
-        <div>${d || ''}</div>
-        <div>${r || ''}</div>
-        <div id="${detailsId}" style="display:none;">${tableHtml}</div>
-      `;
+      <div class="row" style="justify-content:space-between;align-items:center;">
+        <div><strong>R${turn.round}</strong></div>
+        <div><button class="btn" data-toggle="${detailsId}">表を表示/非表示</button></div>
+      </div>
+      <div style="margin-top:6px">攻撃：${a || '—'}</div>
+      <div>${d || ''}</div>
+      <div>${r || ''}</div>
+      <div id="${detailsId}" style="display:none">${matrix}</div>
+    `;
             logEl.appendChild(wrap);
         });
 
-        // toggle wiring
+        // toggle
         logEl.querySelectorAll('[data-toggle]').forEach(btn => {
             btn.onclick = () => {
                 const id = btn.getAttribute('data-toggle');
@@ -163,6 +205,7 @@ function render() {
             };
         });
     }
+
 }
 
 function renderPrivate() {
