@@ -4,68 +4,41 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>関連度バトル（LLM採点版）</title>
+    <title>概念オンライン（同時公開ラウンド）</title>
     <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
     <header>
-        <h1>関連度バトル（LLM採点）</h1>
-        <p class="subtitle">3人×各2ターンで概念を出し，LLMが関連度を0〜100で採点する（高いほど浅い）．</p>
+        <h1>同時公開ラウンド（3人×2R）</h1>
+        <p class="subtitle">各ラウンドで非公開提出→3人揃った瞬間に同時公開＆評価である．</p>
     </header>
 
-    <main>
-        <!-- ターン進行・概念入力 -->
+    <main class="panel">
+        <div class="row">
+            <input id="name" class="input" placeholder="あなたの名前（任意）" />
+            <button id="join" class="btn primary">入室</button>
+            <button id="reset" class="btn ghost">全体リセット</button>
+        </div>
+
+        <div id="status" class="note"></div>
+
         <section class="panel">
-            <div class="turn-box">
-                <div id="turnInfo" class="turn-info">第1手：プレイヤー1のターン</div>
-                <div class="input-row">
-                    <input id="conceptInput" class="input" placeholder="概念を入力…" maxlength="40" />
-                    <button id="submitBtn" class="btn primary">登録</button>
-                </div>
-                <div class="meta-row">
-                    <label><input type="checkbox" id="autoAdvance" checked /> 登録後に入力欄をクリア</label>
-                    <button id="undoBtn" class="btn ghost">一手戻す</button>
-                    <button id="resetBtn" class="btn ghost">リセット</button>
-                </div>
+            <h2>現在のラウンド提出</h2>
+            <div class="row">
+                <input id="concept" class="input" placeholder="このラウンドの概念を入力…" />
+                <button id="submit" class="btn primary">提出</button>
             </div>
-            <div class="status">
-                <div>
-                    <h3>登録済みの概念</h3>
-                    <ol id="conceptList" class="concept-list"></ol>
-                </div>
-                <div class="legend">
-                    <span class="pill p1">P1</span>
-                    <span class="pill p2">P2</span>
-                    <span class="pill p3">P3</span>
-                </div>
-            </div>
+            <ul id="seats"></ul>
         </section>
 
-        <!-- 関連度表 -->
         <section class="panel">
-            <h2>関連度表（LLMスコア）</h2>
-            <div id="llmStatus" class="note"></div>
-            <div class="table-wrap">
-                <table id="matrix" class="matrix"></table>
-            </div>
-        </section>
-
-        <!-- スコアと勝敗 -->
-        <section class="panel">
-            <h2>スコアと勝敗判定</h2>
-            <div id="scoreBoard" class="scores"></div>
-            <div id="winner" class="winner"></div>
+            <h2>公開済みラウンド履歴</h2>
+            <div id="history"></div>
         </section>
     </main>
 
-    <footer>
-        <details>
-            <summary>LLMへの採点プロンプト</summary>
-            <pre id="promptExample" class="pre"></pre>
-        </details>
-    </footer>
-
+    <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
 </body>
 
