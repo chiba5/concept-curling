@@ -1,288 +1,245 @@
-:root {
-    --bg: #0b0c10;
-    --panel: #14161a;
-    --ink: #e8eef2;
-    --muted: #9aa3ab;
-    --p1: #6ee7b7;
-    --p2: #93c5fd;
-    --p3: #f9a8d4;
-    --pri: #22d3ee;
-    --ghost: #2a2f36;
-    --accent: #fde68a;
-    font-family: "Inter", "Noto Sans JP", system-ui, -apple-system, sans-serif;
-}
-
+/* ===== Reset-ish */
 * {
-    box-sizing: border-box
+    box-sizing: border-box;
 }
 
 html,
 body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--ink)
+    height: 100%;
 }
 
+body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+    color: #0f172a;
+    /* slate-900 */
+    background: #f8fafc;
+    /* slate-50 */
+}
+
+/* ===== Layout */
 header {
-    padding: 24px 20px 8px
-}
-
-h1 {
-    margin: 0 0 6px;
-    font-size: 28px;
-    letter-spacing: .02em
-}
-
-.subtitle {
-    margin: 0;
-    color: var(--muted)
+    max-width: 1100px;
+    margin: 24px auto 12px;
+    padding: 0 16px;
 }
 
 main {
     max-width: 1100px;
-    margin: 0 auto;
-    padding: 12px 20px 40px;
+    margin: 0 auto 80px;
+    padding: 0 16px;
     display: grid;
-    gap: 16px
+    gap: 14px;
 }
 
+.subtitle {
+    color: #475569;
+    margin-top: 4px;
+}
+
+/* ===== Cards / Panels */
 .panel {
-    background: var(--panel);
-    border: 1px solid #1e2228;
-    border-radius: 16px;
-    padding: 16px;
-    box-shadow: 0 0 0 1px #0f1115 inset
-}
-
-h2 {
-    margin: 0 0 10px;
-    font-size: 18px
-}
-
-h3 {
-    margin: 0 0 6px;
-    font-size: 16px
-}
-
-.llm-box {
-    display: grid;
-    gap: 8px;
-    margin-bottom: 8px
-}
-
-.stack {
-    display: grid;
-    gap: 6px
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    /* slate-200 */
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, .04);
 }
 
 .row {
     display: flex;
-    gap: 12px;
+    gap: 8px;
     align-items: center;
-    flex-wrap: wrap
+    flex-wrap: wrap;
 }
 
-.turn-box {
-    display: grid;
-    gap: 10px;
-    margin-top: 8px
+.input,
+textarea.input {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    /* slate-300 */
+    background: #fff;
+    padding: 10px 12px;
+    border-radius: 10px;
+    outline: none;
+    font-size: 15px;
 }
 
-.turn-info {
-    font-weight: 700;
-    color: var(--accent)
+.input:focus,
+textarea.input:focus {
+    border-color: #6366f1;
+    /* indigo-500 */
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, .15);
 }
 
-.input-row {
-    display: flex;
-    gap: 8px
-}
-
-.input {
-    flex: 1;
-    padding: 12px 14px;
-    border-radius: 12px;
-    border: 1px solid #2a2f36;
-    background: #0f1115;
-    color: var(--ink)
-}
-
+/* ===== Buttons */
 .btn {
-    padding: 10px 14px;
-    border-radius: 12px;
-    border: 1px solid transparent;
-    cursor: pointer
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #0f172a;
+    padding: 9px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: .15s;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(2, 6, 23, .06);
 }
 
 .btn.primary {
-    background: var(--pri);
-    color: #001018;
-    font-weight: 700
+    background: #4f46e5;
+    /* indigo-600 */
+    border-color: #4f46e5;
+    color: #fff;
+}
+
+.btn.primary:hover {
+    background: #4338ca;
+    border-color: #4338ca;
 }
 
 .btn.ghost {
-    background: var(--ghost);
-    color: var(--ink);
-    border-color: #39414c
+    background: #fff;
 }
 
-.btn:disabled {
-    opacity: .55;
-    cursor: not-allowed
-}
-
-.meta-row {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    color: var(--muted)
-}
-
-.status {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 12px
-}
-
-.concept-list {
-    margin: 8px 0 0;
-    padding-left: 20px
-}
-
-.concept-list li {
-    margin: 4px 0
-}
-
-.pill {
+/* ===== Badges */
+.badge {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 8px;
+    padding: 2px 8px;
     border-radius: 999px;
-    font-weight: 700;
-    margin-right: 6px;
-    color: #0b0c10
+    font-size: 12px;
+    border: 1px solid transparent;
+    background: #eef2ff;
+    color: #3730a3;
 }
 
-.p1 {
-    background: var(--p1)
+.badge.gray {
+    background: #f1f5f9;
+    color: #334155;
 }
 
-.p2 {
-    background: var(--p2)
+.badge.green {
+    background: #ecfdf5;
+    color: #065f46;
 }
 
-.p3 {
-    background: var(--p3)
+.badge.red {
+    background: #fef2f2;
+    color: #991b1b;
 }
 
-.legend .note {
-    color: var(--muted)
+.badge.yellow {
+    background: #fffbeb;
+    color: #92400e;
 }
 
-.table-wrap {
-    overflow: auto;
-    border-radius: 12px;
-    border: 1px solid #232730
-}
-
-.matrix {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0
-}
-
-.matrix th,
-.matrix td {
-    padding: 8px 10px;
-    border-bottom: 1px solid #232730;
-    border-right: 1px solid #232730;
-    text-align: center
-}
-
-.matrix th {
-    position: sticky;
-    top: 0;
-    background: #111419;
-    color: #c9d4df
-}
-
-.matrix tr th:first-child {
-    left: 0;
-    z-index: 2
-}
-
-.matrix tr:nth-child(even) td {
-    background: #0f1116
-}
-
-.bad {
-    color: #ffb4b4
-}
-
-.good {
-    color: #b4ffcc
-}
-
-.pre {
-    white-space: pre-wrap;
-    background: #0f1116;
-    border: 1px solid #232730;
-    border-radius: 12px;
-    padding: 10px
-}
-
-.scores {
+/* ===== Players grid */
+#players {
     display: grid;
-    gap: 8px
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 10px;
 }
 
-.score-card {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #0f1116;
-    border: 1px solid #232730;
+.playerCard {
+    padding: 10px;
     border-radius: 12px;
-    padding: 10px 12px
+    border: 1px dashed #e5e7eb;
 }
 
-.score-card .who {
+.playerHeader {
     display: flex;
     align-items: center;
-    gap: 8px
+    justify-content: space-between;
 }
 
-.score {
-    font-weight: 800
+.livesChips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 6px;
 }
 
-.winner {
-    margin-top: 8px;
-    font-size: 18px;
-    font-weight: 800;
-    color: #fcd34d
+.chip {
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    color: #0f172a;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
 }
 
-.note {
-    color: var(--muted);
-    margin: .5em 0
-}
-
+/* ===== Tables */
 .matrix {
-    border-collapse: collapse;
     width: 100%;
+    border-collapse: collapse;
+    margin-top: 6px;
 }
 
 .matrix th,
 .matrix td {
-    border: 1px solid #e5e7eb;
+    border: 1px solid #e2e8f0;
     padding: 6px 8px;
     font-size: 14px;
 }
 
 .matrix th {
-    background: #f3f4f6;
     text-align: left;
+    background: #f8fafc;
+}
+
+.num {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+/* score color */
+.score-hit {
+    background: #fef3c7;
+}
+
+/* 10<=score<50 破壊域: amber-100 */
+.score-safe {
+    background: #ecfeff;
+}
+
+/* >=50 比較的遠い: cyan-50 */
+.score-close {
+    background: #fee2e2;
+}
+
+/* <10 近すぎ: rose-100 */
+
+/* ===== Sticky attack bar */
+.attackBar {
+    position: sticky;
+    bottom: 8px;
+    z-index: 10;
+    background: #ffffffc9;
+    backdrop-filter: blur(6px);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 10px;
+}
+
+/* ===== Notes & errors */
+.note {
+    color: #475569;
+}
+
+#error {
+    color: #ef4444;
+}
+
+/* Small tweaks */
+h2 {
+    margin: 0 0 8px;
+}
+
+h3 {
+    margin: 10px 0 6px;
 }
