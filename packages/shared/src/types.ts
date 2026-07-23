@@ -84,6 +84,8 @@ export interface PublicState {
 export interface PrivateView {
   seat: number;
   playerToken: string;
+  /** 自分が提出した概念（未提出は null）。採点完了前の再接続復元に使う */
+  myConcepts: string[] | null;
   candidates: ScoredCandidate[]; // submitting の採点完了後に入る
   myLives: { normals: string[]; secret: string | null; secretDestroyed: boolean };
   attackSubmitted: boolean;

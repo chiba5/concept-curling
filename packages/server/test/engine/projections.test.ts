@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { submitAttack } from '../../src/engine/battle.js';
 import { pickLives } from '../../src/engine/picking.js';
 import { toPrivateView, toPublicState } from '../../src/engine/projections.js';
+import { submitConcepts } from '../../src/engine/submitting.js';
 import { allScored, cfg, inBattle, inSubmitting, unwrap } from './helpers.js';
 
 describe('toPublicState', () => {
@@ -68,5 +69,17 @@ describe('toPrivateView', () => {
     const b = unwrap(submitAttack(inBattle(), 1, '嵐')).state;
     expect(toPrivateView(b, 1, 't').attackSubmitted).toBe(true);
     expect(toPrivateView(b, 2, 't').attackSubmitted).toBe(false);
+  });
+  it('提出済み概念 myConcepts を採点前から復元できる', () => {
+    let s = inSubmitting();
+    expect(toPrivateView(s, 1, 't').myConcepts).toBeNull();
+    s = unwrap(submitConcepts(s, 1, ['灯台', '羊皮紙', '炊飯器', '季節風', '簿記']));
+    expect(toPrivateView(s, 1, 't').myConcepts).toEqual([
+      '灯台',
+      '羊皮紙',
+      '炊飯器',
+      '季節風',
+      '簿記',
+    ]);
   });
 });

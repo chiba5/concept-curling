@@ -35,6 +35,10 @@ export interface GameState {
   phase: Phase;
   round: number;
   themes: string[];
+  /**
+   * 不変条件: seat 昇順・欠番なし（addPlayer は末尾追加のみ、削除禁止）。
+   * attackPairs の正準順序と添字アクセスがこの条件に依存する。
+   */
   seats: SeatState[];
   turns: TurnRecord[];
   winnerSeat: number | null;

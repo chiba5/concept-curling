@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addPlayer,
   createGame,
+  getSeat,
   isFull,
   setConnected,
   setController,
@@ -75,5 +76,17 @@ describe('isFull / setConnected / setController', () => {
     const r = setConnected(seated(), 9, false);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.code).toBe('no_seat');
+  });
+  it('setConnected / setController は入力 state を変異させない', () => {
+    const s = seated();
+    const before = structuredClone(s);
+    setConnected(s, 1, false);
+    setController(s, 1, 'cpu');
+    expect(s).toEqual(before);
+  });
+  it('getSeat は席を返し、不在席は undefined', () => {
+    const s = seated();
+    expect(getSeat(s, 2)?.name).toBe('P2');
+    expect(getSeat(s, 9)).toBeUndefined();
   });
 });

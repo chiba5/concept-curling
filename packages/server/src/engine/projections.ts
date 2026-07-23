@@ -41,11 +41,13 @@ export function toPublicState(state: GameState): PublicState {
   };
 }
 
+/** seat は呼び出し側で検証済み前提（不在席には空ビューを返す） */
 export function toPrivateView(state: GameState, seat: number, playerToken: string): PrivateView {
   const s = state.seats.find((x) => x.seat === seat);
   return {
     seat,
     playerToken,
+    myConcepts: s?.submittedConcepts ? [...s.submittedConcepts] : null,
     candidates: s?.candidates ? structuredClone(s.candidates) : [],
     myLives: {
       normals: s?.lives ? [...s.lives.normals] : [],

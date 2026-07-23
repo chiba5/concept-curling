@@ -8,6 +8,7 @@ export interface PairResult {
   reason: string;
 }
 
+// 同一ターゲットに複数の帯内ヒットがある場合、正準順序で先の攻撃者に破壊がクレジットされる（後続はスキップ）
 export function resolveTurn(state: GameState, results: PairResult[]): Result {
   if (state.phase !== 'battle') return err('bad_phase', 'ターン解決は battle 中のみ');
   if (!aliveSeats(state).every((s) => s.attack !== null))
