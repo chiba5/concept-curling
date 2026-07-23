@@ -24,13 +24,13 @@ describe('Room 参加と開始', () => {
     await until(() => c.last()?.phase === 'submitting');
     expect(c.last()?.themes).toEqual(['星座', '航海']);
   });
-  it('満席後の join は拒否される（bad_phase: 2 人目の join が同一 tick で theming へ自動進行するため room_full ではなく bad_phase になる。詳細は p3-task-5-report.md 参照）', async () => {
+  it('満席後の join は room_full', async () => {
     const { room } = makeRoom();
     await room.join('A');
     await room.join('B');
     const r = await room.join('C');
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error.code).toBe('bad_phase');
+    if (!r.ok) expect(r.error.code).toBe('room_full');
   });
   it('addCpu / fillAndStart はホストのみ', async () => {
     const { room } = makeRoom();

@@ -107,6 +107,7 @@ export class Room {
         this.broadcast();
         return engine.ok<JoinResult>({ seat, token, rejoined: true });
       }
+      if (engine.isFull(this.state)) return engine.err<JoinResult>('room_full', '満席です');
       const r = engine.addPlayer(this.state, name);
       if (!r.ok) return r as engine.Result<JoinResult>;
       this.state = r.value.state;
