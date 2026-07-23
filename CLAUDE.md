@@ -4,6 +4,8 @@
 > 以下の §2〜§5 は削除済みの旧実装の説明であり、現在のコードには存在しない。
 > v2 の正は `docs/superpowers/specs/2026-07-23-v2-rewrite-design.md`。
 > 検証コマンドはルートで `npm run check`（lint + typecheck + test + build）。
+> 開発ノート: root package.json の `overrides.vite ^6` は vitest 3 が vite 7 を取り得るための固定。vitest 4 移行時に外す。
+> express は 4 系固定（`app.get('*')` と @types/express が express 5 で壊れる）。安易な npm update 禁止。
 
 LLM が「概念間の無関係度」を採点する、3人用オンライン対戦ゲーム。
 リポジトリ: `chiba5/concept-curling`（private=false）／ デモ: https://concept-curling.onrender.com （Render Free）

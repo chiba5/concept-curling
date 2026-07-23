@@ -129,6 +129,7 @@ export interface ClientToServerEvents {
   'room:create': (p: CreateRoomPayload, cb: (res: Ack<RoomJoined>) => void) => void;
   'room:join': (p: JoinRoomPayload, cb: (res: Ack<RoomJoined>) => void) => void;
   'room:addCpu': (cb: (res: Ack) => void) => void;
+  'room:reset': (cb: (res: Ack) => void) => void;
   'room:start': (cb: (res: Ack) => void) => void;
   'game:submitConcepts': (p: SubmitConceptsPayload, cb: (res: Ack) => void) => void;
   'game:pickLives': (p: PickLivesPayload, cb: (res: Ack) => void) => void;
