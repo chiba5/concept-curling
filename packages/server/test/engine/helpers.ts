@@ -4,6 +4,7 @@ import type { GameState } from '../../src/engine/types.js';
 import { addPlayer, createGame } from '../../src/engine/state.js';
 import { applyThemes, startTheming } from '../../src/engine/theming.js';
 import { applyScores, submitConcepts } from '../../src/engine/submitting.js';
+import { pickLives } from '../../src/engine/picking.js';
 
 export function cfg(overrides: Partial<GameConfig> = {}): GameConfig {
   return { ...DEFAULT_CONFIG, ...overrides };
@@ -48,6 +49,15 @@ export function allScored(config: GameConfig = cfg(), flatScore = 40): GameState
       reasons: state.themes.map(() => '中距離の連想'),
     }));
     state = unwrap(applyScores(state, st.seat, table));
+  }
+  return state;
+}
+
+/** battle フェーズまで進めた状態。各席 [0,1,2] を選抜し SECRET はインデックス 0（=概念X-0） */
+export function inBattle(config: GameConfig = cfg()): GameState {
+  let state = allScored(config);
+  for (const st of [...state.seats].filter((s) => s.alive)) {
+    state = unwrap(pickLives(state, st.seat, [0, 1, 2].slice(0, config.maxLives), 0));
   }
   return state;
 }
