@@ -33,7 +33,12 @@ export function applyScores(state: GameState, seat: number, table: ScoreRow[]): 
   const themeCount = state.config.themes.count;
   if (
     table.length !== target.submittedConcepts.length ||
-    table.some((row) => row.scores.length !== themeCount || row.reasons.length !== themeCount)
+    table.some(
+      (row) =>
+        row.scores.length !== themeCount ||
+        row.reasons.length !== themeCount ||
+        row.scores.some((v) => !Number.isFinite(v)),
+    )
   )
     return err('score_shape', '採点表の形が提出内容と一致しません');
 

@@ -95,8 +95,8 @@ export interface ErrorPayload {
   message: string;
 }
 
-/** socket.io の ack 応答（全 client→server イベント共通） */
-export type Ack<T = undefined> = { ok: true; data: T } | { ok: false; message: string };
+/** socket.io の ack 応答（全 client→server イベント共通）。データ無し成功は { ok: true } で返せる */
+export type Ack<T = undefined> = { ok: true; data?: T } | { ok: false; message: string };
 
 export interface RoomJoined {
   roomId: string;

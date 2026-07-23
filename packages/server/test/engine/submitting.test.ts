@@ -121,4 +121,11 @@ describe('applyScores', () => {
     expect(r2.ok).toBe(false);
     if (!r2.ok) expect(r2.error.code).toBe('already_scored');
   });
+  it('非有限スコア（NaN/Infinity）は score_shape', () => {
+    const s = unwrap(submitConcepts(inSubmitting(), 1, FIVE));
+    const bad = FIVE.map(() => ({ scores: [NaN, 60], reasons: ['x', 'x'] }));
+    const r = applyScores(s, 1, bad);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('score_shape');
+  });
 });

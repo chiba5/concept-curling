@@ -4,6 +4,8 @@ import {
   createGame,
   getSeat,
   isFull,
+  removePlayer,
+  resetGame,
   setConnected,
   setController,
 } from '../../src/engine/state.js';
@@ -88,5 +90,56 @@ describe('isFull / setConnected / setController', () => {
     const s = seated();
     expect(getSeat(s, 2)?.name).toBe('P2');
     expect(getSeat(s, 9)).toBeUndefined();
+  });
+});
+
+describe('removePlayer', () => {
+  it('waiting 中に席を削除し、後続の席番号を詰める', () => {
+    let s = seated(cfg({ playerCount: 3 }));
+    s = unwrap(removePlayer(s, 2));
+    expect(s.seats.map((x) => [x.seat, x.name])).toEqual([
+      [1, 'P1'],
+      [2, 'P3'],
+    ]);
+  });
+  it('詰めた後の addPlayer は空いた末尾の席番号になる', () => {
+    let s = seated(cfg({ playerCount: 3 }));
+    s = unwrap(removePlayer(s, 1));
+    const r = unwrap(addPlayer(s, '新人'));
+    expect(r.seat).toBe(3);
+    expect(r.state.seats.map((x) => x.seat)).toEqual([1, 2, 3]);
+  });
+  it('waiting 以外では bad_phase', () => {
+    const r = removePlayer({ ...seated(), phase: 'battle' }, 1);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('bad_phase');
+  });
+  it('不在席は no_seat', () => {
+    const r = removePlayer(seated(), 9);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('no_seat');
+  });
+});
+
+describe('resetGame', () => {
+  it('席メタ（name/controller/connected）を保持しゲームデータを初期化して waiting に戻す', () => {
+    let s = seated();
+    s = unwrap(setController(s, 2, 'cpu'));
+    s = unwrap(setConnected(s, 3, false));
+    const mid = { ...s, phase: 'battle' as const, round: 3, themes: ['星座', '航海'] };
+    const after = unwrap(resetGame(mid));
+    expect(after.phase).toBe('waiting');
+    expect(after.round).toBe(0);
+    expect(after.themes).toEqual([]);
+    expect(after.turns).toEqual([]);
+    expect(after.winnerSeat).toBeNull();
+    expect(after.seats.map((x) => [x.seat, x.name, x.controller, x.connected])).toEqual([
+      [1, 'P1', 'human', true],
+      [2, 'P2', 'cpu', true],
+      [3, 'P3', 'human', false],
+    ]);
+    expect(after.seats.every((x) => x.alive && x.lives === null && x.candidates === null)).toBe(
+      true,
+    );
   });
 });

@@ -158,4 +158,13 @@ describe('resolveTurn', () => {
     expect(secretRows.length).toBeGreaterThan(0);
     expect(secretRows.every((d) => d.targetLabel === 'SECRET' && !d.destroyed)).toBe(true);
   });
+  it('非有限スコアを含む results は result_shape', () => {
+    const s = ready2p();
+    const results = flatResults(s, 30);
+    const head = results[0];
+    if (head) head.score = Infinity;
+    const r = resolveTurn(s, results);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('result_shape');
+  });
 });

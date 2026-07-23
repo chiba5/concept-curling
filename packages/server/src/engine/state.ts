@@ -66,3 +66,35 @@ export function setController(state: GameState, seat: number, controller: Contro
     s.controller = controller;
   });
 }
+
+/**
+ * waiting 中のみ。席を削除し、後続の席番号を前に詰める（seats 昇順・欠番なし不変条件の維持）。
+ * 呼び出し側（Room）は token→seat 対応の振り直しを行うこと。
+ */
+export function removePlayer(state: GameState, seat: number): Result {
+  if (state.phase !== 'waiting') return err('bad_phase', '退室処理は待機中のみ');
+  if (!getSeat(state, seat)) return err('no_seat', `席 ${seat} は存在しません`);
+  const next = structuredClone(state);
+  next.seats = next.seats.filter((s) => s.seat !== seat);
+  next.seats.forEach((s, i) => {
+    s.seat = i + 1;
+  });
+  return ok(next);
+}
+
+/** 席メタ（name/controller/connected）を保持してゲームデータのみ初期化し waiting へ戻す（再戦用） */
+export function resetGame(state: GameState): Result {
+  const next = createGame(state.roomId, state.config);
+  next.seats = state.seats.map((s) => ({
+    seat: s.seat,
+    name: s.name,
+    controller: s.controller,
+    connected: s.connected,
+    alive: true,
+    submittedConcepts: null,
+    candidates: null,
+    lives: null,
+    attack: null,
+  }));
+  return ok(next);
+}

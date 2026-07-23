@@ -14,8 +14,8 @@ export function resolveTurn(state: GameState, results: PairResult[]): Result {
   if (!aliveSeats(state).every((s) => s.attack !== null))
     return err('not_ready', '全員の攻撃が揃っていません');
   const pairs = attackPairs(state);
-  if (results.length !== pairs.length)
-    return err('result_shape', `結果は ${pairs.length} 件必要です`);
+  if (results.length !== pairs.length || results.some((r) => !Number.isFinite(r.score)))
+    return err('result_shape', `結果は ${pairs.length} 件の有限スコアが必要です`);
 
   const next = structuredClone(state);
   const { min, max } = next.config.destroyBand;
