@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, session } from '../api.js';
 import { Frame } from '../components/Frame.js';
@@ -19,6 +19,7 @@ export function RoomPage() {
   const [joinState, setJoinState] = useState<JoinState>('connecting');
   const [error, setError] = useState('');
   const [nameInput, setNameInput] = useState(session.getName());
+  const joinedRoomRef = useRef<string | null>(null);
 
   const join = async (name: string): Promise<void> => {
     const token = session.getToken(roomId) ?? undefined;
@@ -39,13 +40,15 @@ export function RoomPage() {
   };
 
   useEffect(() => {
+    if (joinedRoomRef.current === roomId) return; // StrictMode の二重実行・同一ルーム再実行を抑止
+    joinedRoomRef.current = roomId;
     const name = session.getName();
     if (!name) {
       setJoinState('need-name');
       return;
     }
     void join(name);
-    // roomId 変更時のみ再実行（join / session は意図的に依存に含めない）
+    // 依存は roomId のみ（join はマウント時 1 回で良い）
   }, [roomId]);
 
   const leave = async (): Promise<void> => {
