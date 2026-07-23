@@ -73,7 +73,7 @@ describe('Room reset', () => {
     if (!r.ok) expect(r.error.code).toBe('not_host');
   });
 
-  it('切断で grace が予約された席があっても reset 後の再戦に旧タイマーが波及しない', async () => {
+  it('切断で grace が予約された席があっても reset 後の再戦は旧タイマーではなく新しい猶予で CPU 代打になる', async () => {
     vi.useFakeTimers();
     try {
       const c = collect();
@@ -83,12 +83,15 @@ describe('Room reset', () => {
       if (!j1.ok) throw new Error('join failed');
       await vi.advanceTimersByTimeAsync(0);
       expect(room.state.phase).toBe('submitting');
-      await room.disconnect(1); // grace 予約
+      await room.disconnect(1); // grace 予約（旧タイマー）
       await room.reset(1); // ホスト reset（切断中でも seatOf 経由でなく直接呼べるサーバ内テスト）
+      // reset は旧タイマーを破棄し、まだ切断中の human 席に新しい猶予を再アームする（C1）。
+      // 旧タイマーが波及したわけではないことは、reset 直後まだ human のままであることで確認する。
+      expect(room.state.seats[0]?.controller).toBe('human');
       await vi.advanceTimersByTimeAsync(0);
       expect(room.state.phase).toBe('submitting'); // 即再戦
       await vi.advanceTimersByTimeAsync(DET_CONFIG.graceSeconds * 1000 + 1000);
-      expect(room.state.seats[0]?.controller).toBe('human'); // 旧タイマーが発火していない
+      expect(room.state.seats[0]?.controller).toBe('cpu'); // 新しい猶予切れで CPU 代打
     } finally {
       vi.useRealTimers();
     }

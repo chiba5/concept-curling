@@ -40,6 +40,7 @@ export class Room {
   private cpuBusy = new Set<number>();
   private resolving = false;
   private disposed = false;
+  private epoch = 0;
 
   constructor(
     public readonly id: string,
@@ -161,12 +162,14 @@ export class Room {
   }
 
   private async resolveThemes(): Promise<void> {
+    const epoch = this.epoch;
     const cfg = this.state.config.themes;
     const themes =
       cfg.mode === 'manual' && cfg.manual
         ? cfg.manual
         : await this.scorer.generateThemes(cfg.count);
     await this.run(() => {
+      if (epoch !== this.epoch) return;
       if (this.apply(engine.applyThemes(this.state, themes))) {
         this.broadcast();
         this.pokeCpu();
@@ -190,10 +193,12 @@ export class Room {
 
   /** 概念 × テーマの採点（キュー外）→ applyScores（キュー内）。Scorer は reject しない */
   private async scoreSeat(seat: number, concepts: string[]): Promise<void> {
+    const epoch = this.epoch;
     const themes = [...this.state.themes];
     const pairs = concepts.flatMap((c) => themes.map((t) => ({ a: c, b: t })));
     const results = await this.scorer.scorePairs(pairs);
     await this.run(() => {
+      if (epoch !== this.epoch) return;
       const table = concepts.map((_, i) => ({
         scores: themes.map((__, j) => results[i * themes.length + j]?.score ?? 50),
         reasons: themes.map((__, j) => results[i * themes.length + j]?.reason ?? ''),
@@ -235,11 +240,13 @@ export class Room {
 
   private async resolveTurnFlow(): Promise<void> {
     if (this.resolving) return;
+    const epoch = this.epoch;
     this.resolving = true;
     try {
       const pairs = engine.attackPairs(this.state);
       const results = await this.scorer.scorePairs(pairs.map(({ a, b }) => ({ a, b })));
       await this.run(() => {
+        if (epoch !== this.epoch) return;
         if (this.apply(engine.resolveTurn(this.state, results))) {
           this.broadcast();
           this.pokeCpu();
@@ -247,6 +254,15 @@ export class Room {
       });
     } finally {
       this.resolving = false;
+      void this.run(() => {
+        if (
+          this.state.phase === 'battle' &&
+          engine.aliveSeats(this.state).every((s) => s.attack !== null) &&
+          !this.resolving
+        ) {
+          void this.resolveTurnFlow();
+        }
+      });
     }
   }
 
@@ -254,9 +270,13 @@ export class Room {
     return this.run(() => {
       this.touch();
       if (bySeat !== this.state.hostSeat) return engine.err('not_host', 'ホストのみ実行できます');
+      this.epoch++;
       for (const s of [...this.graceTimers.keys()]) this.clearGrace(s);
       if (!this.apply(engine.resetGame(this.state)))
         return engine.err('internal', 'リセットに失敗しました');
+      for (const s of this.state.seats) {
+        if (s.controller === 'human' && !s.connected) this.scheduleGrace(s.seat);
+      }
       this.maybeStart();
       this.broadcast();
       return engine.ok(undefined);

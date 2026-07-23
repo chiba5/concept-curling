@@ -132,6 +132,23 @@ describe('ResilientScorer', () => {
     await expect(s.generateThemes(2)).resolves.toHaveLength(2);
     await expect(s.generateAttack(['星座'], ['灯台'])).resolves.toBeTruthy();
   });
+  it('demo 穴埋め結果はキャッシュされず、復旧後に primary で再採点される', async () => {
+    const fetchFn = vi
+      .fn()
+      // OpenAIScorer は 1 回リトライ（計 2 attempts）するため、初回呼び出しを 2 連続で失敗させる
+      .mockRejectedValueOnce(new Error('down'))
+      .mockRejectedValueOnce(new Error('down'))
+      .mockResolvedValueOnce(openaiResponse({ pairs: [{ i: 0, score: 40, reason: '回復' }] }));
+    const s = new ResilientScorer(
+      new OpenAIScorer(opts(fetchFn as typeof fetch)),
+      new DemoScorer(),
+      { provider: 'openai', model: 'gpt-4o-mini' },
+    );
+    const r1 = await s.scorePairs([{ a: '灯台', b: '星座' }]);
+    expect(r1[0]?.reason).toBe('簡易採点');
+    const r2 = await s.scorePairs([{ a: '灯台', b: '星座' }]);
+    expect(r2[0]).toEqual({ score: 40, reason: '回復' });
+  });
 });
 
 describe('createScorerFromEnv', () => {
@@ -142,5 +159,12 @@ describe('createScorerFromEnv', () => {
   it('キーがあれば既定で openai、無ければ demo', () => {
     expect(createScorerFromEnv({ OPENAI_API_KEY: 'sk-x' }).providerName).toBe('openai');
     expect(createScorerFromEnv({}).providerName).toBe('demo');
+  });
+  it('空文字の env 値は未設定として扱う', () => {
+    const s = createScorerFromEnv({ SCORING_PROVIDER: '', OPENAI_API_KEY: 'sk-x' });
+    expect(s.providerName).toBe('openai');
+    expect(createScorerFromEnv({ SCORING_PROVIDER: '', OPENAI_API_KEY: '' }).providerName).toBe(
+      'demo',
+    );
   });
 });

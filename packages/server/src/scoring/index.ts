@@ -51,6 +51,7 @@ export class ResilientScorer implements Scorer {
       });
     }
     results.forEach((r, i) => {
+      if (this.primary && missing.includes(i)) return;
       const p = pairs[i];
       if (r && p) this.cache.set(pairKey(this.meta.provider, this.meta.model, p.a, p.b), r);
     });
@@ -120,13 +121,19 @@ export interface ScorerEnv {
 }
 
 export function createScorerFromEnv(env: ScorerEnv): ResilientScorer {
-  const provider = env.SCORING_PROVIDER ?? (env.OPENAI_API_KEY ? 'openai' : 'demo');
-  const model = env.OPENAI_MODEL ?? 'gpt-4o-mini';
-  if (provider === 'openai' && env.OPENAI_API_KEY) {
+  const clean = (v: string | undefined): string | undefined => {
+    const t = v?.trim();
+    return t ? t : undefined;
+  };
+  const provider = clean(env.SCORING_PROVIDER) ?? (clean(env.OPENAI_API_KEY) ? 'openai' : 'demo');
+  const model = clean(env.OPENAI_MODEL) ?? 'gpt-4o-mini';
+  const apiKey = clean(env.OPENAI_API_KEY);
+  if (provider === 'openai' && apiKey) {
+    const parsed = Number.parseFloat(clean(env.OPENAI_TEMPERATURE) ?? '0.2');
     const primary = new OpenAIScorer({
-      apiKey: env.OPENAI_API_KEY,
+      apiKey,
       model,
-      temperature: Number.parseFloat(env.OPENAI_TEMPERATURE ?? '0.2'),
+      temperature: Number.isFinite(parsed) ? parsed : 0.2,
     });
     return new ResilientScorer(primary, new DemoScorer(), { provider: 'openai', model });
   }

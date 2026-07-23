@@ -5,14 +5,17 @@ import { createApp } from './app.js';
 import { createScorerFromEnv } from './scoring/index.js';
 import { createGameServer, type GameIo } from './socket.js';
 
-const PORT = Number(process.env.PORT ?? 3000);
+const portParsed = Number(process.env.PORT);
+const PORT = Number.isFinite(portParsed) && portParsed > 0 ? portParsed : 3000;
 const server = http.createServer(createApp());
 const io: GameIo = new Server(server); // 同一オリジン配信のため CORS 設定は置かない
 
 const scorer = createScorerFromEnv(process.env);
-const cpuDelayRaw = process.env.CPU_DELAY_MS;
+const cpuDelayParsed = Number(process.env.CPU_DELAY_MS);
 const cpuDelayMs =
-  cpuDelayRaw !== undefined ? { min: Number(cpuDelayRaw), max: Number(cpuDelayRaw) } : undefined;
+  process.env.CPU_DELAY_MS?.trim() && Number.isFinite(cpuDelayParsed) && cpuDelayParsed >= 0
+    ? { min: cpuDelayParsed, max: cpuDelayParsed }
+    : undefined;
 
 const manager = createGameServer(io, scorer, { cpuDelayMs });
 setInterval(() => manager.sweep(), 60_000).unref();

@@ -78,4 +78,28 @@ describe('待機中退室と再接続', () => {
     await vi.advanceTimersByTimeAsync(DET_CONFIG.graceSeconds * 1000);
     expect(room.state.seats[0]?.controller).toBe('human');
   });
+
+  it('決着後に切断した席があっても reset 後の再戦で CPU 代打が発動する', async () => {
+    vi.useFakeTimers();
+    try {
+      const c = collect();
+      const room = new Room('R', DET_CONFIG, new DemoScorer(), c.cb, NO_DELAY);
+      await room.join('A');
+      await room.join('B');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(room.state.phase).toBe('submitting');
+      // 決着まで進める代わりに finished を直接作る（サーバ内テスト）
+      room.state = { ...room.state, phase: 'finished' as const };
+      await room.disconnect(2); // finished 中の切断: grace は張られない（設計どおり）
+      room.state = { ...room.state, phase: 'battle' as const }; // reset を通すための整合(resetGame は任意フェーズ可)
+      await room.reset(1);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(room.state.phase).toBe('submitting'); // 再戦開始
+      expect(room.state.seats[1]?.connected).toBe(false);
+      await vi.advanceTimersByTimeAsync(DET_CONFIG.graceSeconds * 1000);
+      expect(room.state.seats[1]?.controller).toBe('cpu'); // grace 再アームで CPU 代打
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
