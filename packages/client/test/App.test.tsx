@@ -22,6 +22,6 @@ describe('App', () => {
         </GameProvider>
       </MemoryRouter>,
     );
-    expect(screen.getByText('概念カーリング')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: '概念カーリング' })).toBeTruthy();
   });
 });
