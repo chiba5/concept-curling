@@ -1,10 +1,12 @@
-import { DEFAULT_CONFIG } from '@concept-curling/shared';
+import { Route, Routes } from 'react-router-dom';
+import { Lobby } from './pages/Lobby.js';
+import { RoomPage } from './pages/RoomPage.js';
 
 export function App() {
   return (
-    <main>
-      <h1>概念カーリング</h1>
-      <p>v2 構築中 — 既定人数: {DEFAULT_CONFIG.playerCount}</p>
-    </main>
+    <Routes>
+      <Route path="/" element={<Lobby />} />
+      <Route path="/room/:roomId" element={<RoomPage />} />
+    </Routes>
   );
 }
