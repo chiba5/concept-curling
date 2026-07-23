@@ -3,3 +3,5 @@ node_modules/
 .superpowers/
 dist/
 coverage/
+test-results/
+playwright-report/
