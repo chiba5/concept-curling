@@ -27,8 +27,18 @@ describe('submitConcepts', () => {
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.code).toBe('already_submitted');
   });
+  it('脱落済みの席からの提出は not_alive', () => {
+    const s = structuredClone(inSubmitting());
+    const seat1 = s.seats[0];
+    if (seat1) seat1.alive = false;
+    const r = submitConcepts(s, 1, FIVE);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('not_alive');
+  });
   it('submitting 以外では bad_phase / 不在席は no_seat', () => {
-    expect(submitConcepts({ ...inSubmitting(), phase: 'battle' }, 1, FIVE).ok).toBe(false);
+    const rp = submitConcepts({ ...inSubmitting(), phase: 'battle' }, 1, FIVE);
+    expect(rp.ok).toBe(false);
+    if (!rp.ok) expect(rp.error.code).toBe('bad_phase');
     const r = submitConcepts(inSubmitting(), 99, FIVE);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.code).toBe('no_seat');
