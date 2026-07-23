@@ -12,3 +12,12 @@
 - 検証 5 点（個数・重複・範囲・maxLives・pickable）はエンジンが担当。即敗北は applyScores 時に自動処理
 - 攻撃×ライフの正準順序を `attackPairs` に固定（自席への攻撃も対象 = 現行ルール踏襲）
 - lifeCount は保存せず都度計算。details の SECRET ラベルは行処理前の公開状態で決定
+
+## 2026-07-23 P3: サーバ実行系
+
+- Scorer 層: OpenAI（fetch 直叩き・JSON mode・timeout 15s・retry 1）+ Demo フォールバック + LRU 5,000。ResilientScorer はどのメソッドも reject しない
+- Room: 直列キューで全 state 変更を序列化（旧 v1 の二重解決を運用面でも封殺）。採点はキュー外・適用はキュー内
+- 再接続: playerToken 認証。waiting 退室は席詰め + token 振り直し / ゲーム中は猶予後 CPU 代打（可逆）
+- private 配送は seat でなく playerToken ルーティング（席番号振り直しに安全）
+- 決定的テスト手法: DemoScorer + destroyBand [0,100) → 「攻撃 == ライフ概念で必中、無関係語で必外し」
+- 既知の割り切り: ホスト（席1）永久離脱時は reset 不能（30 分 GC で回収）/ CPU 代打の TOCTOU（復帰直後に CPU の提出が通る窓）は許容
