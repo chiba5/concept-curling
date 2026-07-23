@@ -19,7 +19,7 @@
 - ルーム制（同時複数ゲーム）、URL コード参加
 - CPU プレイヤー（ソロ試遊 = 人間 1 + CPU n）
 - 再接続（リロード・画面ロックで席を失わない）、離脱時は猶予後 CPU 代打（可逆）
-- マルチプロバイダ LLM 採点（OpenAI / Anthropic / Demo フォールバック）
+- LLM 採点層の抽象化（OpenAI + Demo フォールバック。Scorer インターフェースでプロバイダ差替可能）
 - 採点根拠の一行表示
 - モバイル対応（モバイルファースト）
 - ユニットテスト + Playwright E2E + GitHub Actions CI
@@ -30,6 +30,7 @@
 - DB 永続化（サーバ再起動でルーム消滅は許容）
 - 観戦者・リプレイ・ランキング
 - プロバイダのルーム内 UI 切替（環境変数でのみ切替）
+- `AnthropicScorer` 実装（Scorer インターフェース準拠の薄い実装としていつでも追加可能。運用キーを増やさないため v1 では見送り）
 - スコアの [15..85] 正規化（**廃止**。§5.3 参照）
 
 ## 3. ゲームルール（v1 正）
@@ -133,8 +134,8 @@ interface Scorer {
 }
 ```
 
-- 実装: `OpenAIScorer`（既定 `gpt-4o-mini`）/ `AnthropicScorer`（既定 `claude-haiku-4-5`）/ `DemoScorer`（bigram Jaccard、reason は「簡易採点」固定）
-- 選択: `SCORING_PROVIDER=openai|anthropic|demo`。モデル・temperature も env で上書き可。**選択プロバイダ失敗時は DemoScorer へ全フォールバック**（キー無しでも完走できる現行特性を維持）
+- 実装: `OpenAIScorer`（既定 `gpt-4o-mini`）/ `DemoScorer`（bigram Jaccard、reason は「簡易採点」固定）。他プロバイダはこのインターフェースへの追加実装で対応する（v1 では作らない）
+- 選択: `SCORING_PROVIDER=openai|demo`。モデル・temperature も env で上書き可。**選択プロバイダ失敗時は DemoScorer へ全フォールバック**（キー無しでも完走できる現行特性を維持）
 - 採点根拠: 同一 JSON 応答で `{ i, score, reason }`（reason は 20 字程度の日本語）。選抜時の自スコア表示とバトル判定録の両方に出す
 - キャッシュ: キー `provider|model|normalize(a)|normalize(b)`、LRU 上限 5,000 件（reason 込み）、全ルーム共有
 - 堅牢化: タイムアウト 15 秒 + リトライ 1 回、スコアは 0..100 にクランプ、欠損は demo 値で穴埋め、JSON mode 使用
