@@ -76,4 +76,17 @@ describe('pickLives', () => {
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.code).toBe('not_alive');
   });
+  it('存在しない席は no_seat', () => {
+    const r = pickLives(allScored(), 99, [0], 0);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('no_seat');
+  });
+  it('採点前の席は not_scored', () => {
+    const s = structuredClone(allScored());
+    const seat1 = s.seats[0];
+    if (seat1) seat1.candidates = null;
+    const r = pickLives(s, 1, [0], 0);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('not_scored');
+  });
 });

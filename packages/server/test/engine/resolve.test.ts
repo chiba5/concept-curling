@@ -145,4 +145,17 @@ describe('resolveTurn', () => {
     const seat2 = after.seats[1];
     expect(seat2 ? lifeCount(seat2) : -1).toBe(1); // SECRET のみ残存
   });
+  it('battle 以外では bad_phase', () => {
+    const s = ready2p();
+    const r = resolveTurn({ ...s, phase: 'picking' }, []);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('bad_phase');
+  });
+  it('生き残った SECRET の行は伏せ名のまま destroyed=false', () => {
+    const s = ready2p();
+    const after = unwrap(resolveTurn(s, flatResults(s, 90)));
+    const secretRows = after.turns[0]?.details.filter((d) => d.targetKind === 'secret') ?? [];
+    expect(secretRows.length).toBeGreaterThan(0);
+    expect(secretRows.every((d) => d.targetLabel === 'SECRET' && !d.destroyed)).toBe(true);
+  });
 });

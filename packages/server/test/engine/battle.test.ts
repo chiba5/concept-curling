@@ -64,4 +64,15 @@ describe('attackPairs', () => {
     const pairs = attackPairs(mut);
     expect(pairs.filter((p) => p.targetSeat === 1)).toHaveLength(4); // normals 2 × 攻撃者 2
   });
+  it('脱落席は攻撃者からも対象からも除外される', () => {
+    let s = inBattle(cfg({ playerCount: 2 }));
+    s = unwrap(submitAttack(s, 1, '嵐')).state;
+    s = unwrap(submitAttack(s, 2, '雷')).state;
+    const mut = structuredClone(s);
+    const seat2 = mut.seats[1];
+    if (seat2) seat2.alive = false;
+    const pairs = attackPairs(mut);
+    expect(pairs.length).toBeGreaterThan(0);
+    expect(pairs.every((p) => p.targetSeat !== 2 && p.atkSeat !== 2)).toBe(true);
+  });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { submitAttack } from '../../src/engine/battle.js';
+import { pickLives } from '../../src/engine/picking.js';
 import { toPrivateView, toPublicState } from '../../src/engine/projections.js';
 import { allScored, cfg, inBattle, inSubmitting, unwrap } from './helpers.js';
 
@@ -29,6 +30,20 @@ describe('toPublicState', () => {
     expect(pub.themes).toEqual(['星座', '航海']);
     expect(pub.hostSeat).toBe(1);
     expect(pub.roomId).toBe('ROOM01');
+  });
+  it('未公開 SECRET の概念文字列が公開 state に一切現れない', () => {
+    const pub = toPublicState(inBattle());
+    expect(JSON.stringify(pub)).not.toContain('概念1-0');
+  });
+  it('脱落席の ready は常に false / 選抜済みの ready は true', () => {
+    let s = allScored();
+    s = unwrap(pickLives(s, 1, [0], 0));
+    const dead = structuredClone(s);
+    const seat2 = dead.seats[1];
+    if (seat2) seat2.alive = false;
+    const pub = toPublicState(dead);
+    expect(pub.players[0]?.ready).toBe(true);
+    expect(pub.players[1]?.ready).toBe(false);
   });
 });
 
