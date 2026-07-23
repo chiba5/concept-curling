@@ -2,6 +2,8 @@ import type { GameConfig } from '@concept-curling/shared';
 import { DEFAULT_CONFIG } from '@concept-curling/shared';
 import type { GameState } from '../../src/engine/types.js';
 import { addPlayer, createGame } from '../../src/engine/state.js';
+import { applyThemes, startTheming } from '../../src/engine/theming.js';
+import { applyScores, submitConcepts } from '../../src/engine/submitting.js';
 
 export function cfg(overrides: Partial<GameConfig> = {}): GameConfig {
   return { ...DEFAULT_CONFIG, ...overrides };
@@ -24,4 +26,28 @@ export function unwrap<T>(
 ): T {
   if (!r.ok) throw new Error(`unexpected err: ${r.error.code} ${r.error.message}`);
   return r.value;
+}
+
+/** submitting フェーズまで進めた状態（テーマは 星座/航海。themes.count は config に従う） */
+export function inSubmitting(config: GameConfig = cfg()): GameState {
+  const themes = ['星座', '航海', '茶道', '簿記'].slice(0, config.themes.count);
+  return unwrap(applyThemes(unwrap(startTheming(seated(config))), themes));
+}
+
+/** 全席が同じ概念群とスコア表を提出し終えた状態を作る。scoresPerSeat[seatIndex][conceptIndex] = 各テーマ共通のスコア値 */
+export function allScored(config: GameConfig = cfg(), flatScore = 40): GameState {
+  let state = inSubmitting(config);
+  for (const st of [...state.seats]) {
+    const concepts = Array.from(
+      { length: config.conceptsPerPlayer },
+      (_, i) => `概念${st.seat}-${i}`,
+    );
+    state = unwrap(submitConcepts(state, st.seat, concepts));
+    const table = concepts.map(() => ({
+      scores: state.themes.map(() => flatScore),
+      reasons: state.themes.map(() => '中距離の連想'),
+    }));
+    state = unwrap(applyScores(state, st.seat, table));
+  }
+  return state;
 }
