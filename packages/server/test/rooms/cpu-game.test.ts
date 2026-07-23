@@ -36,4 +36,9 @@ describe('CPU 自動対局', () => {
     expect(room.state.phase).toBe('finished');
     expect(room.state.winnerSeat).toBe(1);
   }, 20000);
+
+  it('前提: 人間の固定 SECRET「灯台」は CPU 語彙プールに含まれない（friendly fire 自滅の防止）', async () => {
+    const pool = await new DemoScorer().generateConcepts([], 14);
+    expect(pool).not.toContain('灯台');
+  });
 });
