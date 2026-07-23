@@ -46,6 +46,8 @@ export interface PublicPlayer {
   livesPublic: string[]; // 公開ライフ（SECRET を除く残存分）
   secretRevealed: string | null; // 破壊等で公開された SECRET
   hasSecret: boolean; // SECRET が未破壊で存在するか
+  /** 切断中の human 席のみ非 null。この epoch ms を過ぎると CPU 代打（UI はカウントダウン表示に使う） */
+  graceDeadline: number | null;
 }
 
 export interface TurnDetail {
@@ -91,12 +93,9 @@ export interface PrivateView {
   attackSubmitted: boolean;
 }
 
-export interface ErrorPayload {
-  message: string;
-}
-
 /** socket.io の ack 応答（全 client→server イベント共通）。データ無し成功は { ok: true } で返せる */
-export type Ack<T = undefined> = { ok: true; data?: T } | { ok: false; message: string };
+export type Ack<T = undefined> =
+  { ok: true; data?: T } | { ok: false; code?: string; message: string };
 
 export interface RoomJoined {
   roomId: string;
@@ -132,6 +131,7 @@ export interface ClientToServerEvents {
   'room:join': (p: JoinRoomPayload, cb: (res: Ack<RoomJoined>) => void) => void;
   'room:addCpu': (cb: (res: Ack) => void) => void;
   'room:reset': (cb: (res: Ack) => void) => void;
+  'room:leave': (cb: (res: Ack) => void) => void;
   'room:start': (cb: (res: Ack) => void) => void;
   'game:submitConcepts': (p: SubmitConceptsPayload, cb: (res: Ack) => void) => void;
   'game:pickLives': (p: PickLivesPayload, cb: (res: Ack) => void) => void;
@@ -141,5 +141,4 @@ export interface ClientToServerEvents {
 export interface ServerToClientEvents {
   state: (s: PublicState) => void;
   private: (v: PrivateView) => void;
-  errorMsg: (e: ErrorPayload) => void;
 }

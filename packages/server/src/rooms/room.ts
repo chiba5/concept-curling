@@ -35,6 +35,7 @@ export class Room {
 
   private tokens = new Map<string, number>(); // token → seat（人間のみ）
   private graceTimers = new Map<number, NodeJS.Timeout>();
+  private graceDeadlines = new Map<number, number>();
   private queue: Promise<unknown> = Promise.resolve();
   // 席番号キー。waiting 中は CPU 行動が予約されない（pokeCpu が waiting を対象外）ため removeWaiting の振り直しと衝突しない
   private cpuBusy = new Set<number>();
@@ -84,7 +85,11 @@ export class Room {
   }
 
   private broadcast(): void {
-    this.cb.onPublic(engine.toPublicState(this.state));
+    const pub = engine.toPublicState(this.state);
+    for (const p of pub.players) {
+      p.graceDeadline = this.graceDeadlines.get(p.seat) ?? null;
+    }
+    this.cb.onPublic(pub);
     for (const [token, seat] of this.tokens) {
       this.cb.onPrivate(seat, engine.toPrivateView(this.state, seat, token));
     }
@@ -306,6 +311,7 @@ export class Room {
     this.disposed = true;
     for (const t of this.graceTimers.values()) clearTimeout(t);
     this.graceTimers.clear();
+    this.graceDeadlines.clear();
   }
 
   /** waiting 中の退室: 席を詰め、token / grace の席番号を振り直す */
@@ -325,6 +331,15 @@ export class Room {
         this.graceTimers.set(s - 1, timer);
       }
     }
+    const deadlineEntries = [...this.graceDeadlines];
+    for (const [s, deadline] of deadlineEntries) {
+      if (s === seat) {
+        this.graceDeadlines.delete(s);
+      } else if (s > seat) {
+        this.graceDeadlines.delete(s);
+        this.graceDeadlines.set(s - 1, deadline);
+      }
+    }
   }
 
   private scheduleGrace(seat: number): void {
@@ -332,6 +347,7 @@ export class Room {
     const timer = setTimeout(() => {
       void this.run(() => {
         this.graceTimers.delete(seat);
+        this.graceDeadlines.delete(seat);
         const st = engine.getSeat(this.state, seat);
         if (!st || st.connected || st.controller !== 'human') return;
         if (this.apply(engine.setController(this.state, seat, 'cpu'))) {
@@ -341,6 +357,7 @@ export class Room {
       });
     }, this.state.config.graceSeconds * 1000);
     this.graceTimers.set(seat, timer);
+    this.graceDeadlines.set(seat, this.now() + this.state.config.graceSeconds * 1000);
   }
 
   private clearGrace(seat: number): void {
@@ -349,6 +366,7 @@ export class Room {
       clearTimeout(t);
       this.graceTimers.delete(seat);
     }
+    this.graceDeadlines.delete(seat);
   }
 
   // ---- CPU 駆動 ----

@@ -5,15 +5,21 @@ interface FakeRoom {
   id: string;
   lastActivity: number;
   connected: boolean;
+  disposed: boolean;
   hasConnectedHumans(): boolean;
+  dispose(): void;
 }
 
 const fakeRoom = (id: string, lastActivity: number, connected: boolean): FakeRoom => ({
   id,
   lastActivity,
   connected,
+  disposed: false,
   hasConnectedHumans() {
     return this.connected;
+  },
+  dispose() {
+    this.disposed = true;
   },
 });
 
@@ -49,5 +55,16 @@ describe('RoomManager', () => {
     expect(m.get(dead.id)).toBeUndefined();
     expect(m.get(alive.id)).toBeDefined();
     expect(m.get(recent.id)).toBeDefined();
+  });
+  it('sweep で削除されるルームは dispose() が呼ばれる', () => {
+    let t = 0;
+    const m = new RoomManager<FakeRoom>((id) => fakeRoom(id, 0, false), { now: () => t });
+    const dead = m.create();
+    const alive = m.create();
+    alive.connected = true;
+    t = 31 * 60 * 1000;
+    m.sweep();
+    expect(dead.disposed).toBe(true);
+    expect(alive.disposed).toBe(false);
   });
 });

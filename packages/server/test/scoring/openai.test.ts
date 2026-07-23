@@ -57,6 +57,35 @@ describe('OpenAIScorer', () => {
     );
     await expect(bad.generateThemes(2)).rejects.toThrow();
   });
+  it('generateThemes: 重複したテーマ応答は throw する', async () => {
+    const dup = new OpenAIScorer(
+      opts(vi.fn().mockResolvedValue(openaiResponse({ themes: ['星座', '星座'] })) as typeof fetch),
+    );
+    await expect(dup.generateThemes(2)).rejects.toThrow();
+  });
+  it('timeout: never-resolve な fetch は attempt ごとに abort され、リトライ後 throw する', async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchFn = vi.fn().mockImplementation(
+        (_url: string, init?: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+          }),
+      );
+      const s = new OpenAIScorer({
+        ...opts(fetchFn as unknown as typeof fetch),
+        timeoutMs: 100,
+      });
+      const p = s.scorePairs([{ a: 'x', b: 'y' }]);
+      const assertion = expect(p).rejects.toThrow();
+      await vi.advanceTimersByTimeAsync(250);
+      await vi.advanceTimersByTimeAsync(250);
+      await assertion;
+      expect(fetchFn).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe('ResilientScorer', () => {

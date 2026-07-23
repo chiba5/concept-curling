@@ -84,11 +84,11 @@ export function createGameServer(
 
     const guarded = (
       fn: () => Promise<void>,
-      ack: (res: { ok: false; message: string }) => void,
+      ack: (res: { ok: false; code?: string; message: string }) => void,
     ): void => {
       void fn().catch(() => {
         try {
-          ack({ ok: false, message: 'サーバエラーが発生しました' });
+          ack({ ok: false, code: 'internal', message: 'サーバエラーが発生しました' });
         } catch {
           /* ack already sent */
         }
@@ -98,10 +98,10 @@ export function createGameServer(
     socket.on('room:create', (payload, ack) => {
       guarded(async () => {
         const p = createRoomSchema.safeParse(payload);
-        if (!p.success) return ack({ ok: false, message: '入力が不正です' });
+        if (!p.success) return ack({ ok: false, code: 'invalid_input', message: '入力が不正です' });
         const room = manager.create(p.data.config);
         const r = await room.join(p.data.name);
-        if (!r.ok) return ack({ ok: false, message: r.error.message });
+        if (!r.ok) return ack({ ok: false, code: r.error.code, message: r.error.message });
         bind(room.id, r.value.token);
         await room.refresh();
         ack({
@@ -114,11 +114,12 @@ export function createGameServer(
     socket.on('room:join', (payload, ack) => {
       guarded(async () => {
         const p = joinRoomSchema.safeParse(payload);
-        if (!p.success) return ack({ ok: false, message: '入力が不正です' });
+        if (!p.success) return ack({ ok: false, code: 'invalid_input', message: '入力が不正です' });
         const room = manager.get(p.data.roomId);
-        if (!room) return ack({ ok: false, message: 'ルームが見つかりません' });
+        if (!room)
+          return ack({ ok: false, code: 'room_not_found', message: 'ルームが見つかりません' });
         const r = await room.join(p.data.name, p.data.playerToken);
-        if (!r.ok) return ack({ ok: false, message: r.error.message });
+        if (!r.ok) return ack({ ok: false, code: r.error.code, message: r.error.message });
         bind(room.id, r.value.token);
         await room.refresh();
         ack({
@@ -131,60 +132,81 @@ export function createGameServer(
     socket.on('room:addCpu', (ack) => {
       guarded(async () => {
         const loc = located();
-        if (!loc) return ack({ ok: false, message: 'ルームに参加していません' });
+        if (!loc)
+          return ack({ ok: false, code: 'not_in_room', message: 'ルームに参加していません' });
         const r = await loc.room.addCpu(loc.seat);
-        ack(r.ok ? { ok: true } : { ok: false, message: r.error.message });
+        ack(r.ok ? { ok: true } : { ok: false, code: r.error.code, message: r.error.message });
       }, ack);
     });
 
     socket.on('room:start', (ack) => {
       guarded(async () => {
         const loc = located();
-        if (!loc) return ack({ ok: false, message: 'ルームに参加していません' });
+        if (!loc)
+          return ack({ ok: false, code: 'not_in_room', message: 'ルームに参加していません' });
         const r = await loc.room.fillAndStart(loc.seat);
-        ack(r.ok ? { ok: true } : { ok: false, message: r.error.message });
+        ack(r.ok ? { ok: true } : { ok: false, code: r.error.code, message: r.error.message });
       }, ack);
     });
 
     socket.on('room:reset', (ack) => {
       guarded(async () => {
         const loc = located();
-        if (!loc) return ack({ ok: false, message: 'ルームに参加していません' });
+        if (!loc)
+          return ack({ ok: false, code: 'not_in_room', message: 'ルームに参加していません' });
         const r = await loc.room.reset(loc.seat);
-        ack(r.ok ? { ok: true } : { ok: false, message: r.error.message });
+        ack(r.ok ? { ok: true } : { ok: false, code: r.error.code, message: r.error.message });
+      }, ack);
+    });
+
+    socket.on('room:leave', (ack) => {
+      guarded(async () => {
+        const loc = located();
+        if (!loc)
+          return ack({ ok: false, code: 'not_in_room', message: 'ルームに参加していません' });
+        const { roomId, token } = socket.data;
+        if (token && tokenSockets.get(token) === socket) tokenSockets.delete(token);
+        if (roomId) void socket.leave(roomId);
+        socket.data.roomId = undefined;
+        socket.data.token = undefined;
+        await loc.room.disconnect(loc.seat);
+        ack({ ok: true });
       }, ack);
     });
 
     socket.on('game:submitConcepts', (payload, ack) => {
       guarded(async () => {
         const loc = located();
-        if (!loc) return ack({ ok: false, message: 'ルームに参加していません' });
+        if (!loc)
+          return ack({ ok: false, code: 'not_in_room', message: 'ルームに参加していません' });
         const p = submitConceptsSchema.safeParse(payload);
-        if (!p.success) return ack({ ok: false, message: '入力が不正です' });
+        if (!p.success) return ack({ ok: false, code: 'invalid_input', message: '入力が不正です' });
         const r = await loc.room.submitConcepts(loc.seat, p.data.concepts);
-        ack(r.ok ? { ok: true } : { ok: false, message: r.error.message });
+        ack(r.ok ? { ok: true } : { ok: false, code: r.error.code, message: r.error.message });
       }, ack);
     });
 
     socket.on('game:pickLives', (payload, ack) => {
       guarded(async () => {
         const loc = located();
-        if (!loc) return ack({ ok: false, message: 'ルームに参加していません' });
+        if (!loc)
+          return ack({ ok: false, code: 'not_in_room', message: 'ルームに参加していません' });
         const p = pickLivesSchema.safeParse(payload);
-        if (!p.success) return ack({ ok: false, message: '入力が不正です' });
+        if (!p.success) return ack({ ok: false, code: 'invalid_input', message: '入力が不正です' });
         const r = await loc.room.pickLives(loc.seat, p.data.selectedIndices, p.data.secretIndex);
-        ack(r.ok ? { ok: true } : { ok: false, message: r.error.message });
+        ack(r.ok ? { ok: true } : { ok: false, code: r.error.code, message: r.error.message });
       }, ack);
     });
 
     socket.on('game:attack', (payload, ack) => {
       guarded(async () => {
         const loc = located();
-        if (!loc) return ack({ ok: false, message: 'ルームに参加していません' });
+        if (!loc)
+          return ack({ ok: false, code: 'not_in_room', message: 'ルームに参加していません' });
         const p = attackSchema.safeParse(payload);
-        if (!p.success) return ack({ ok: false, message: '入力が不正です' });
+        if (!p.success) return ack({ ok: false, code: 'invalid_input', message: '入力が不正です' });
         const r = await loc.room.attack(loc.seat, p.data.concept);
-        ack(r.ok ? { ok: true } : { ok: false, message: r.error.message });
+        ack(r.ok ? { ok: true } : { ok: false, code: r.error.code, message: r.error.message });
       }, ack);
     });
 

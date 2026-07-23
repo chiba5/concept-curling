@@ -99,8 +99,11 @@ describe('socket E2E', () => {
     expect((await attack(b, '油彩')).ok).toBe(true);
     await until(() => a.last()?.phase === 'finished');
     expect(a.last()?.winnerSeat).toBe(1);
-    // 非公開情報の境界: ボブの public には破壊前のアリス SECRET が現れない
-    expect(JSON.stringify(b.states)).not.toContain('灯台');
+    // 非公開情報の境界: finished 前はボブの public に破壊前のアリス SECRET が現れず、finished で公開される
+    const preFinished = b.states.filter((s) => s.phase !== 'finished');
+    expect(JSON.stringify(preFinished)).not.toContain('灯台');
+    const finished = b.states.find((s) => s.phase === 'finished');
+    expect(finished?.players[0]?.secretRevealed).toBe('灯台');
   });
 
   it('切断 → 別ソケット + playerToken で復帰し、myConcepts を受け取る', async () => {
@@ -128,5 +131,18 @@ describe('socket E2E', () => {
     );
     expect(bad.ok).toBe(false);
     if (!bad.ok) expect(bad.message).toBe('入力が不正です');
+  });
+
+  it('room:leave 後は同一ソケットで別ルームを作れる（旧ルームは切断扱い）', async () => {
+    const a = await newClient();
+    const b = await newClient();
+    const created = await createRoom(a, 'アリス');
+    if (!created.ok || !created.data) throw new Error('create failed');
+    await joinRoom(b, created.data.roomId, 'ボブ');
+    const left = await new Promise<Ack>((r) => a.sock.emit('room:leave', r));
+    expect(left.ok).toBe(true);
+    const second = await createRoom(a, 'アリス2');
+    expect(second.ok).toBe(true);
+    if (second.ok && second.data) expect(second.data.roomId).not.toBe(created.data.roomId);
   });
 });

@@ -46,6 +46,22 @@ describe('toPublicState', () => {
     expect(pub.players[0]?.ready).toBe(true);
     expect(pub.players[1]?.ready).toBe(false);
   });
+  it('graceDeadline は既定で null', () => {
+    const pub = toPublicState(inBattle());
+    expect(pub.players.every((p) => p.graceDeadline === null)).toBe(true);
+  });
+  it('finished では未破壊 SECRET も公開される', () => {
+    const s = structuredClone(inBattle());
+    s.phase = 'finished';
+    s.winnerSeat = 1;
+    const pub = toPublicState(s);
+    expect(pub.players[0]?.secretRevealed).toBe('概念1-0');
+    expect(pub.players[1]?.secretRevealed).toBe('概念2-0');
+  });
+  it('finished 以外では未破壊 SECRET は公開されない（回帰）', () => {
+    const pub = toPublicState(inBattle());
+    expect(pub.players.every((p) => p.secretRevealed === null)).toBe(true);
+  });
 });
 
 describe('toPrivateView', () => {

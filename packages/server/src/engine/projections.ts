@@ -32,8 +32,12 @@ export function toPublicState(state: GameState): PublicState {
       ready: isReady(state, s),
       lifeCount: lifeCount(s),
       livesPublic: s.lives ? [...s.lives.normals] : [],
-      secretRevealed: s.lives?.secret && s.lives.secret.revealed ? s.lives.secret.concept : null,
+      secretRevealed:
+        s.lives?.secret && (s.lives.secret.revealed || state.phase === 'finished')
+          ? s.lives.secret.concept
+          : null,
       hasSecret: !!(s.lives?.secret && !s.lives.secret.destroyed),
+      graceDeadline: null, // Room が上書きする
     })),
     turns: structuredClone(state.turns),
     winnerSeat: state.winnerSeat,

@@ -102,4 +102,24 @@ describe('待機中退室と再接続', () => {
       vi.useRealTimers();
     }
   });
+
+  it('切断中の席は graceDeadline が配信され、復帰で null に戻る', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(1_000_000);
+      const c = collect();
+      const room = new Room('R', DET_CONFIG, new DemoScorer(), c.cb, NO_DELAY);
+      const j1 = await room.join('A');
+      await room.join('B');
+      if (!j1.ok) throw new Error('join failed');
+      await vi.advanceTimersByTimeAsync(0);
+      await room.disconnect(1);
+      const during = c.last()?.players[0]?.graceDeadline;
+      expect(during).toBe(1_000_000 + DET_CONFIG.graceSeconds * 1000);
+      await room.join('A', j1.value.token);
+      expect(c.last()?.players[0]?.graceDeadline).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

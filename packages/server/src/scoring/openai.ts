@@ -96,7 +96,8 @@ ${JSON.stringify(pairs.map((p, i) => ({ i, a: p.a, b: p.b })))}
     const json = (await this.callJson(THEME_SYSTEM, user)) as { themes?: unknown };
     const arr = Array.isArray(json.themes) ? json.themes : [];
     const themes = arr.filter((x): x is string => typeof x === 'string' && x.trim().length > 0);
-    if (themes.length !== count) throw new Error('invalid themes response');
+    if (themes.length !== count || new Set(themes).size !== count)
+      throw new Error('invalid themes response');
     return themes.map((t) => t.trim());
   }
 
