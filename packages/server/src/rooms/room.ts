@@ -36,8 +36,10 @@ export class Room {
   private tokens = new Map<string, number>(); // token → seat（人間のみ）
   private graceTimers = new Map<number, NodeJS.Timeout>();
   private queue: Promise<unknown> = Promise.resolve();
+  // 席番号キー。waiting 中は CPU 行動が予約されない（pokeCpu が waiting を対象外）ため removeWaiting の振り直しと衝突しない
   private cpuBusy = new Set<number>();
   private resolving = false;
+  private disposed = false;
 
   constructor(
     public readonly id: string,
@@ -252,6 +254,7 @@ export class Room {
     return this.run(() => {
       this.touch();
       if (bySeat !== this.state.hostSeat) return engine.err('not_host', 'ホストのみ実行できます');
+      for (const s of [...this.graceTimers.keys()]) this.clearGrace(s);
       if (!this.apply(engine.resetGame(this.state)))
         return engine.err('internal', 'リセットに失敗しました');
       this.maybeStart();
@@ -278,8 +281,9 @@ export class Room {
     });
   }
 
-  /** GC・テスト用: 保持タイマーを全破棄 */
+  /** GC・テスト用: 保持タイマーを全破棄し、以降の CPU スケジューリングも停止する */
   dispose(): void {
+    this.disposed = true;
     for (const t of this.graceTimers.values()) clearTimeout(t);
     this.graceTimers.clear();
   }
@@ -336,6 +340,7 @@ export class Room {
 
   /** 現フェーズで行動が必要な CPU 席に遅延付き行動を予約（多重予約は cpuBusy で防止） */
   private pokeCpu(): void {
+    if (this.disposed) return;
     for (const st of this.state.seats) {
       if (st.controller !== 'cpu' || !st.alive || this.cpuBusy.has(st.seat)) continue;
       const needs =
@@ -345,6 +350,7 @@ export class Room {
       if (!needs) continue;
       this.cpuBusy.add(st.seat);
       setTimeout(() => {
+        if (this.disposed) return;
         void this.cpuAct(st.seat).finally(() => this.cpuBusy.delete(st.seat));
       }, this.cpuDelay());
     }

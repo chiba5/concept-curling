@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { DemoScorer } from '../../src/scoring/demo.js';
 import { Room } from '../../src/rooms/room.js';
 import { DET_CONFIG, NO_DELAY, collect, until } from './helpers.js';
@@ -71,6 +71,27 @@ describe('Room reset', () => {
     const r = await room.reset(2);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.code).toBe('not_host');
+  });
+
+  it('切断で grace が予約された席があっても reset 後の再戦に旧タイマーが波及しない', async () => {
+    vi.useFakeTimers();
+    try {
+      const c = collect();
+      const room = new Room('R', DET_CONFIG, new DemoScorer(), c.cb, NO_DELAY);
+      const j1 = await room.join('A');
+      await room.join('B');
+      if (!j1.ok) throw new Error('join failed');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(room.state.phase).toBe('submitting');
+      await room.disconnect(1); // grace 予約
+      await room.reset(1); // ホスト reset（切断中でも seatOf 経由でなく直接呼べるサーバ内テスト）
+      await vi.advanceTimersByTimeAsync(0);
+      expect(room.state.phase).toBe('submitting'); // 即再戦
+      await vi.advanceTimersByTimeAsync(DET_CONFIG.graceSeconds * 1000 + 1000);
+      expect(room.state.seats[0]?.controller).toBe('human'); // 旧タイマーが発火していない
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
