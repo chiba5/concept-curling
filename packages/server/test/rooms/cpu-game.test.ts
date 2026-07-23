@@ -20,7 +20,7 @@ describe('CPU 自動対局', () => {
     await room.pickLives(1, [0], 0);
     await until(() => c.last()?.phase === 'battle', 5000);
 
-    // サーバ側テストなので CPU のライフを直接読み、完全一致攻撃（score 0）で確実に破壊する
+    // サーバ側テストなので CPU のライフを直接読み、完全一致攻撃（score 15、帯内）で確実に破壊する
     for (let i = 0; i < 10 && room.state.phase === 'battle'; i++) {
       const target = room.state.seats.find((s) => s.seat !== 1 && s.alive);
       const concept =

@@ -2,15 +2,15 @@ import type { GameConfig, PrivateView, PublicState } from '@concept-curling/shar
 
 /**
  * 決定的テスト用 config。
- * DemoScorer では無関係語のテーマスコアが 100 → 合計 200 <= 200 で全候補 pickable。
- * destroyBand [0,100): 攻撃 == ライフ概念 → score 0 → 破壊 / 無関係語 → 100 → 帯外で安全。
+ * DemoScorer は [15..75] にリマップ済み: 完全一致 → 15（destroyBand [10,50) 内 → 破壊）、
+ * 無関係語 → 75（帯外 → 安全）。無関係語のテーマスコア合計は 75×2=150 <= pickSumLimit 200 で全候補 pickable。
  */
 export const DET_CONFIG: GameConfig = {
   playerCount: 2,
   conceptsPerPlayer: 3,
   maxLives: 1,
   pickSumLimit: 200,
-  destroyBand: { min: 0, max: 100 },
+  destroyBand: { min: 10, max: 50 },
   themes: { count: 2, mode: 'manual', manual: ['星座', '航海'] },
   graceSeconds: 10,
 };

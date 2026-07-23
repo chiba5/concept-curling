@@ -111,7 +111,7 @@ describe('Room フルゲーム（決定的）', () => {
     expect(r2.ok).toBe(true);
     await until(() => c.last()?.phase === 'picking');
 
-    // DemoScorer: 無関係語 × テーマ = 100 → total 200 <= 200 で全候補 pickable
+    // DemoScorer: 無関係語 × テーマ = 75 → total 150 <= 200 で全候補 pickable
     expect(c.priv.get(1)?.candidates.every((x) => x.pickable)).toBe(true);
     expect(c.priv.get(1)?.candidates[0]?.reasons[0]).toBe('簡易採点');
 
@@ -119,9 +119,9 @@ describe('Room フルゲーム（決定的）', () => {
     await room.pickLives(2, [1], 1); // ボブの SECRET = 風見鶏
     await until(() => c.last()?.phase === 'battle');
 
-    const a1 = await room.attack(1, '風見鶏'); // ボブの SECRET と完全一致 → score 0 → 破壊
+    const a1 = await room.attack(1, '風見鶏'); // ボブの SECRET と完全一致 → score 15 → 帯内で破壊
     expect(a1.ok).toBe(true);
-    const a2 = await room.attack(2, '油彩'); // 全ペア無関係 → 100 → 帯外
+    const a2 = await room.attack(2, '油彩'); // 全ペア無関係 → 75 → 帯外
     expect(a2.ok).toBe(true);
     await until(() => c.last()?.phase === 'finished');
 

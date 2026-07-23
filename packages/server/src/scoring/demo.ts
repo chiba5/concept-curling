@@ -54,7 +54,13 @@ function sample(pool: string[], n: number): string[] {
 export class DemoScorer implements Scorer {
   scorePairs(pairs: { a: string; b: string }[]): Promise<PairScore[]> {
     return Promise.resolve(
-      pairs.map(({ a, b }) => ({ score: demoScore(a, b), reason: '簡易採点' })),
+      pairs.map(({ a, b }) => {
+        // 生の bigram Jaccard（0..100）を [15..75] に線形リマップする。
+        // 無関係語 75×2 テーマ = 150 <= 既定 pickSumLimit(150) → キー無しでも選抜可能、
+        // 完全一致 15 は既定破壊帯 [10,50) に入る → 攻撃の決定的テストが可能。
+        const v = 15 + Math.round(demoScore(a, b) * 0.6);
+        return { score: v, reason: '簡易採点' };
+      }),
     );
   }
   generateThemes(count: number): Promise<string[]> {

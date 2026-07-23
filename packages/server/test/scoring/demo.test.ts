@@ -36,8 +36,8 @@ describe('DemoScorer', () => {
       { a: '灯台', b: '簿記' },
     ]);
     expect(r).toEqual([
-      { score: 0, reason: '簡易採点' },
-      { score: 100, reason: '簡易採点' },
+      { score: 15, reason: '簡易採点' },
+      { score: 75, reason: '簡易採点' },
     ]);
   });
   it('generateThemes は指定個数の重複なし日本語テーマを返す', async () => {

@@ -121,7 +121,7 @@ describe('ResilientScorer', () => {
       { provider: 'openai', model: 'gpt-4o-mini' },
     );
     const r = await s.scorePairs([{ a: '灯台', b: '灯台' }]);
-    expect(r).toEqual([{ score: 0, reason: '簡易採点' }]);
+    expect(r).toEqual([{ score: 15, reason: '簡易採点' }]);
   });
   it('primary の欠損インデックスは demo で穴埋めされる', async () => {
     const fetchFn = vi
@@ -137,7 +137,7 @@ describe('ResilientScorer', () => {
       { a: '灯台', b: '灯台' },
     ]);
     expect(r[0]).toEqual({ score: 40, reason: 'r' });
-    expect(r[1]).toEqual({ score: 0, reason: '簡易採点' });
+    expect(r[1]).toEqual({ score: 15, reason: '簡易採点' });
   });
   it('generateConcepts は個数・重複・空文字を保証する（primary が壊れた配列を返しても）', async () => {
     const fetchFn = vi
@@ -156,7 +156,7 @@ describe('ResilientScorer', () => {
   it('primary 無し（demo 単独）でも全メソッドが動く', async () => {
     const s = new ResilientScorer(null, new DemoScorer(), { provider: 'demo', model: 'demo' });
     await expect(s.scorePairs([{ a: 'x', b: 'x' }])).resolves.toEqual([
-      { score: 0, reason: '簡易採点' },
+      { score: 15, reason: '簡易採点' },
     ]);
     await expect(s.generateThemes(2)).resolves.toHaveLength(2);
     await expect(s.generateAttack(['星座'], ['灯台'])).resolves.toBeTruthy();
