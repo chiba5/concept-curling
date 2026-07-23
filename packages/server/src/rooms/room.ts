@@ -338,7 +338,16 @@ export class Room {
     return min + Math.random() * (max - min);
   }
 
-  /** 現フェーズで行動が必要な CPU 席に遅延付き行動を予約（多重予約は cpuBusy で防止） */
+  /**
+   * 現フェーズで行動が必要な CPU 席に遅延付き行動を予約（多重予約は cpuBusy で防止）。
+   * cpuBusy は「タイマーが発火するまで」だけを守る（=setTimeout 発火時に即クリア）。
+   * cpuAct の完了（=攻撃提出→resolveTurnFlow 完了）まで busy を引きずると、
+   * battle は同一フェーズ内で複数ラウンドを跨ぐため、resolveTurnFlow 内の pokeCpu が
+   * 「自分の攻撃が引き金になった解決」の直後に呼ばれた際、cpuAct の finally（busy 解除）
+   * より先に走ってしまい、次ラウンドの同じ CPU 席が二度と再予約されず対局が止まる
+   * （攻撃→resolveTurnFlow起動→run()キュー経由のpokeCpu が、cpuAct 側の
+   * await this.attack() 継続より必ず先に処理される、という Promise 解決順に起因）。
+   */
   private pokeCpu(): void {
     if (this.disposed) return;
     for (const st of this.state.seats) {
@@ -350,8 +359,9 @@ export class Room {
       if (!needs) continue;
       this.cpuBusy.add(st.seat);
       setTimeout(() => {
+        this.cpuBusy.delete(st.seat);
         if (this.disposed) return;
-        void this.cpuAct(st.seat).finally(() => this.cpuBusy.delete(st.seat));
+        void this.cpuAct(st.seat);
       }, this.cpuDelay());
     }
   }
