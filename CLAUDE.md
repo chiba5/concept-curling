@@ -1,5 +1,10 @@
 # concept-curling — CLAUDE.md
 
+> **⚠️ このブランチ（feat/v2-rewrite）は v2 全面作り直し作業中。**
+> 以下の §2〜§5 は削除済みの旧実装の説明であり、現在のコードには存在しない。
+> v2 の正は `docs/superpowers/specs/2026-07-23-v2-rewrite-design.md`。
+> 検証コマンドはルートで `npm run check`（lint + typecheck + test + build）。
+
 LLM が「概念間の無関係度」を採点する、3人用オンライン対戦ゲーム。
 リポジトリ: `chiba5/concept-curling`（private=false）／ デモ: https://concept-curling.onrender.com （Render Free）
 
