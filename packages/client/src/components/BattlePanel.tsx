@@ -15,6 +15,7 @@ export function BattlePanel() {
     return <p className="notice section">攻撃提出済み — 全員の提出で判定します</p>;
 
   const submit = async (): Promise<void> => {
+    if (busy) return;
     const t = concept.trim();
     if (!t) {
       setError('攻撃概念を入力してください');
