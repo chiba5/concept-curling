@@ -9,7 +9,13 @@ export function FinishedPanel() {
 
   return (
     <div className="section">
-      <h2 className="heading">{winner ? `${winner.name} の勝利` : '相打ち — 勝者なし'}</h2>
+      <h2 className="themes winner">
+        {winner
+          ? priv?.seat === pub.winnerSeat
+            ? 'あなたの勝利'
+            : `${winner.name} の勝利`
+          : '相打ち — 勝者なし'}
+      </h2>
       <span className="label">全 SECRET 公開</span>
       <div className="players">
         {pub.players.map((p) => (

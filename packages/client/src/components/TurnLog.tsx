@@ -1,38 +1,107 @@
-import type { PublicPlayer, TurnRecord } from '@concept-curling/shared';
+import type { PublicPlayer, TurnDetail, TurnRecord } from '@concept-curling/shared';
+
+interface Col {
+  key: string;
+  targetSeat: number;
+  targetKind: 'normal' | 'secret';
+  label: string; // SECRET は「秘」、公開済みなら概念名
+}
+
+function buildColumns(details: TurnDetail[]): Col[] {
+  const cols = new Map<string, Col>();
+  for (const d of details) {
+    const key =
+      d.targetKind === 'secret' ? `S:${d.targetSeat}` : `N:${d.targetSeat}:${d.targetLabel}`;
+    const existing = cols.get(key);
+    const label =
+      d.targetKind === 'secret'
+        ? d.targetLabel === 'SECRET'
+          ? '秘'
+          : d.targetLabel
+        : d.targetLabel;
+    if (!existing) {
+      cols.set(key, { key, targetSeat: d.targetSeat, targetKind: d.targetKind, label });
+    } else if (d.targetKind === 'secret' && d.targetLabel !== 'SECRET') {
+      existing.label = d.targetLabel; // ターン中に公開されたら概念名で表示
+    }
+  }
+  return [...cols.values()];
+}
 
 export function TurnLog({ turns, players }: { turns: TurnRecord[]; players: PublicPlayer[] }) {
   const nameOf = (seat: number): string =>
     players.find((p) => p.seat === seat)?.name ?? `席${seat}`;
   return (
     <div>
-      {[...turns].reverse().map((turn) => (
-        <div className="turn" key={turn.round}>
-          <div className="turn-head">
-            <span>第{turn.round}回合</span>
-            <span className="notice">
-              {turn.attacks.map((a) => nameOf(a.seat)).join('、')} が攻撃を提出
-            </span>
+      {[...turns].reverse().map((turn) => {
+        const cols = buildColumns(turn.details);
+        const rows = turn.attacks;
+        const cell = new Map<string, TurnDetail>();
+        for (const d of turn.details) {
+          const colKey =
+            d.targetKind === 'secret' ? `S:${d.targetSeat}` : `N:${d.targetSeat}:${d.targetLabel}`;
+          cell.set(`${d.atkSeat}|${colKey}`, d);
+        }
+        const destroyedRows = turn.details.filter((d) => d.destroyed);
+        return (
+          <div className="turn" key={turn.round}>
+            <div className="turn-head">
+              <span>第{turn.round}回合</span>
+            </div>
+            <div className="turn-body">
+              <table className="table matrix">
+                <thead>
+                  <tr>
+                    <th>攻撃 ＼ ライフ</th>
+                    {cols.map((c) => (
+                      <th key={c.key} className="num">
+                        {c.label}
+                        <span className="why">（{nameOf(c.targetSeat)}）</span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((atk) => (
+                    <tr key={atk.seat}>
+                      <td>
+                        {atk.concept}
+                        <span className="why">（{nameOf(atk.seat)}）</span>
+                      </td>
+                      {cols.map((c) => {
+                        const d = cell.get(`${atk.seat}|${c.key}`);
+                        return (
+                          <td key={c.key} className="num">
+                            {d ? (
+                              <span className={d.destroyed ? 'destroyed destroyed-score' : ''}>
+                                {d.score}
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {destroyedRows.map((d, i) => (
+                <p className="why" key={i}>
+                  {d.atkConcept} が {nameOf(d.targetSeat)} の「
+                  {d.targetKind === 'secret'
+                    ? (turn.reveals.find((r) => r.seat === d.targetSeat)?.concept ?? '秘')
+                    : d.targetLabel}
+                  」を破壊 — {d.reason}
+                </p>
+              ))}
+              {turn.eliminatedSeats.length ? (
+                <p className="notice">{turn.eliminatedSeats.map(nameOf).join('、')} が脱落</p>
+              ) : null}
+            </div>
           </div>
-          <div className="turn-body">
-            {turn.details.map((d, i) => (
-              <div className="verdict" key={i}>
-                <span className={`pair${d.destroyed ? ' destroyed' : ''}`}>
-                  {d.atkConcept} → {d.targetLabel}
-                  <span className="notice">（{nameOf(d.targetSeat)}）</span>
-                </span>
-                <span className={`score${d.destroyed ? ' destroyed-score' : ''}`}>{d.score}</span>
-                <span className="why">
-                  <span>{d.reason}</span>
-                  {d.destroyed ? <span> — 破壊</span> : null}
-                </span>
-              </div>
-            ))}
-            {turn.eliminatedSeats.length ? (
-              <p className="notice">{turn.eliminatedSeats.map(nameOf).join('、')} が脱落</p>
-            ) : null}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

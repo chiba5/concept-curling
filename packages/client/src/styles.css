@@ -91,6 +91,9 @@ body {
   font-size: var(--fs-lg);
   margin: 0 0.4em;
 }
+.winner {
+  color: var(--vermilion);
+}
 
 /* --- 罫線区切りセクション --- */
 .section {
@@ -234,6 +237,10 @@ body {
 .table .why {
   font-size: var(--fs-xs);
   color: var(--faded);
+}
+.matrix th,
+.matrix td {
+  white-space: nowrap;
 }
 .pickable-no {
   color: var(--faded);

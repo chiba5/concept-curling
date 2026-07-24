@@ -20,11 +20,17 @@ const SCORE_SYSTEM = `あなたは概念間の無関係度を厳密に数値化�
 const THEME_SYSTEM = `あなたは抽象と具象をバランスよく提示するキュレーター。
 出力は必ずJSONのみ。日本語で、意味の離れた短いテーマを毎回変えて生成する。`;
 
-const CONCEPT_SYSTEM = `あなたは連想ゲームのプレイヤー。出力は必ずJSONのみ。
-与えられたテーマ群と「深すぎず浅すぎない中距離」の関連を持つ日本語の短い概念を生成する。`;
+const CONCEPT_SYSTEM = `あなたは連想ゲームの熟練プレイヤー。出力は必ずJSONのみ。
+目的: 各テーマと「深すぎず浅すぎない中距離」の関連（無関係度 40〜60 目安）を持つ概念を出す。
+厳守:
+- テーマの語やその一部を含む語・複合語は禁止（例: テーマ「夢」に「夢日記」「夢の中の風船」は不可）
+- 独立した短い名詞 1 語（1〜6 文字程度）
+- 同義語・直接の上位下位語ではなく、1〜2 ホップの間接連想にする
+  （例: 「夢」→「宇宙」「枕」「予知」／「風船」→「誕生日」「ヘリウム」「浮力」）`;
 
 const ATTACK_SYSTEM = `あなたは連想ゲームの攻撃者。出力は必ずJSONのみ。
-対象概念のどれかと「中程度の関連（同義ではないが明確に繋がる）」を持つ日本語の短い概念を1つ生成する。`;
+対象概念のどれかと「中程度の関連（無関係度 10〜49 を狙う。同義・包含ではなく連想でつながる）」を持つ
+独立した短い名詞 1 語を生成する。対象概念の語やその一部を含む複合語は禁止。`;
 
 /** OpenAI Chat Completions を fetch 直叩き。失敗・不正形は throw（穴埋めは ResilientScorer の責務） */
 export class OpenAIScorer {
@@ -103,7 +109,7 @@ ${JSON.stringify(pairs.map((p, i) => ({ i, a: p.a, b: p.b })))}
 
   async generateConcepts(themes: string[], n: number): Promise<string[]> {
     const user = `テーマ: ${JSON.stringify(themes)}
-要件: 各テーマと中距離の関連を持つ日本語の概念（20字以内）を ${n} 個、重複なしで。
+要件: 上記の厳守事項に従い、各テーマと中距離の関連を持つ独立した概念を ${n} 個、重複なしで。
 出力: {"concepts":["概念1", ...]}`;
     const json = (await this.callJson(CONCEPT_SYSTEM, user)) as { concepts?: unknown };
     const arr = Array.isArray(json.concepts) ? json.concepts : [];

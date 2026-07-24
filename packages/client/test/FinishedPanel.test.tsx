@@ -28,9 +28,10 @@ const { FinishedPanel } = await import('../src/components/FinishedPanel.js');
 
 describe('FinishedPanel', () => {
   it('勝者と全 SECRET を表示し、ホストには再戦ボタンが出る', () => {
-    render(<FinishedPanel />);
-    expect(screen.getByText(/アリス.*勝利/)).toBeTruthy();
+    const { container } = render(<FinishedPanel />);
+    expect(screen.getByText('あなたの勝利')).toBeTruthy();
     expect(screen.getByText(/風見鶏/)).toBeTruthy();
     expect(screen.getByText('もう一戦')).toBeTruthy();
+    expect(container.querySelector('.winner')?.textContent).toContain('勝利');
   });
 });

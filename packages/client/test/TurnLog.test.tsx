@@ -42,12 +42,15 @@ const turn: TurnRecord = {
 };
 
 describe('TurnLog', () => {
-  it('攻撃・スコア・理由・破壊が表示され、SECRET は伏せられる', () => {
-    render(<TurnLog turns={[turn]} players={players} />);
-    expect(screen.getByText(/嵐/)).toBeTruthy();
+  it('マトリクスに攻撃・スコア・理由・破壊が表示され、SECRET は伏せられる', () => {
+    const { container } = render(<TurnLog turns={[turn]} players={players} />);
+    expect(screen.getAllByText(/嵐/).length).toBeGreaterThan(0);
     expect(screen.getByText('23')).toBeTruthy();
-    expect(screen.getByText('気象由来の近縁')).toBeTruthy();
-    expect(screen.getByText(/SECRET/)).toBeTruthy();
+    expect(screen.getByText(/気象由来の近縁/)).toBeTruthy();
+    expect(screen.getByText('秘')).toBeTruthy();
+    expect(container.querySelector('table.matrix')).toBeTruthy();
+    const headers = [...container.querySelectorAll('table.matrix th')].map((th) => th.textContent);
+    expect(headers.some((h) => h?.includes('風見鶏'))).toBe(true);
   });
   it('破壊された行に destroyed クラスが付く（朱の打ち消し線）', () => {
     const { container } = render(<TurnLog turns={[turn]} players={players} />);
