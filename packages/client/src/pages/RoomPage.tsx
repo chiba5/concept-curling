@@ -156,8 +156,9 @@ export function RoomPage() {
           <p className="notice">
             ルール: {pub.config.playerCount}人 ／ 概念{pub.config.conceptsPerPlayer}個提出 ／
             ライフ最大
-            {pub.config.maxLives} ／ 選抜上限{pub.config.pickSumLimit} ／ 破壊帯{' '}
-            {pub.config.destroyBand.min}–{pub.config.destroyBand.max - 1} ／ テーマ
+            {pub.config.maxLives} ／ 選抜下限{pub.config.pickMinTotal} ／ 破壊閾値{' '}
+            {pub.config.destroyThreshold} ／ {pub.config.allSecret ? '全SECRET' : '公開+秘1'} ／
+            テーマ
             {pub.config.themes.count}個
           </p>
           <p className="notice">この URL を共有すると友人が参加できます</p>

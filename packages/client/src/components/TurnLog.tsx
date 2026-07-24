@@ -4,23 +4,31 @@ interface Col {
   key: string;
   targetSeat: number;
   targetKind: 'normal' | 'secret';
-  label: string; // SECRET は「秘」、公開済みなら概念名
+  targetOrdinal: number;
+  label: string; // SECRET は「秘N」、公開済みなら概念名
+}
+
+function colKey(targetSeat: number, targetOrdinal: number): string {
+  return `${targetSeat}:${targetOrdinal}`;
 }
 
 function buildColumns(details: TurnDetail[]): Col[] {
   const cols = new Map<string, Col>();
   for (const d of details) {
-    const key =
-      d.targetKind === 'secret' ? `S:${d.targetSeat}` : `N:${d.targetSeat}:${d.targetLabel}`;
-    const existing = cols.get(key);
+    const key = colKey(d.targetSeat, d.targetOrdinal);
     const label =
-      d.targetKind === 'secret'
-        ? d.targetLabel === 'SECRET'
-          ? '秘'
-          : d.targetLabel
+      d.targetKind === 'secret' && d.targetLabel === 'SECRET'
+        ? `秘${d.targetOrdinal + 1}`
         : d.targetLabel;
+    const existing = cols.get(key);
     if (!existing) {
-      cols.set(key, { key, targetSeat: d.targetSeat, targetKind: d.targetKind, label });
+      cols.set(key, {
+        key,
+        targetSeat: d.targetSeat,
+        targetKind: d.targetKind,
+        targetOrdinal: d.targetOrdinal,
+        label,
+      });
     } else if (d.targetKind === 'secret' && d.targetLabel !== 'SECRET') {
       existing.label = d.targetLabel; // ターン中に公開されたら概念名で表示
     }
@@ -38,9 +46,7 @@ export function TurnLog({ turns, players }: { turns: TurnRecord[]; players: Publ
         const rows = turn.attacks;
         const cell = new Map<string, TurnDetail>();
         for (const d of turn.details) {
-          const colKey =
-            d.targetKind === 'secret' ? `S:${d.targetSeat}` : `N:${d.targetSeat}:${d.targetLabel}`;
-          cell.set(`${d.atkSeat}|${colKey}`, d);
+          cell.set(`${d.atkSeat}|${colKey(d.targetSeat, d.targetOrdinal)}`, d);
         }
         const destroyedRows = turn.details.filter((d) => d.destroyed);
         return (
@@ -89,12 +95,15 @@ export function TurnLog({ turns, players }: { turns: TurnRecord[]; players: Publ
               {destroyedRows.map((d, i) => (
                 <p className="why" key={i}>
                   {d.atkConcept} が {nameOf(d.targetSeat)} の「
-                  {d.targetKind === 'secret'
-                    ? (turn.reveals.find((r) => r.seat === d.targetSeat)?.concept ?? '秘')
-                    : d.targetLabel}
+                  {d.targetKind === 'secret' && d.targetLabel === 'SECRET' ? '秘' : d.targetLabel}
                   」を破壊 — {d.reason}
                 </p>
               ))}
+              {turn.reveals.length ? (
+                <p className="why">
+                  公開: {turn.reveals.map((r) => `${r.concept}（${nameOf(r.seat)}）`).join('、')}
+                </p>
+              ) : null}
               {turn.eliminatedSeats.length ? (
                 <p className="notice">{turn.eliminatedSeats.map(nameOf).join('、')} が脱落</p>
               ) : null}

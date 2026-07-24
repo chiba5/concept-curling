@@ -15,8 +15,8 @@ const initialGameValue = {
     winnerSeat: 1,
     hostSeat: 1,
     players: [
-      { seat: 1, name: 'アリス', alive: true, secretRevealed: '灯台', livesPublic: ['季節風'] },
-      { seat: 2, name: 'ボブ', alive: false, secretRevealed: '風見鶏', livesPublic: [] },
+      { seat: 1, name: 'アリス', alive: true, revealedSecrets: ['灯台'], livesPublic: ['季節風'] },
+      { seat: 2, name: 'ボブ', alive: false, revealedSecrets: ['風見鶏'], livesPublic: [] },
     ],
   } as unknown as PublicState,
   priv: { seat: 1 } as unknown as PrivateView,

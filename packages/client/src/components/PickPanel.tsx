@@ -9,7 +9,8 @@ export function PickPanel() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const maxLives = pub?.config.maxLives ?? 3;
-  const limit = pub?.config.pickSumLimit ?? 150;
+  const limit = pub?.config.pickMinTotal ?? 50;
+  const allSecret = pub?.config.allSecret ?? true;
   const candidates = priv?.candidates ?? [];
   const me = pub?.players.find((p) => p.seat === priv?.seat);
   const picked = me?.ready ?? false;
@@ -35,13 +36,19 @@ export function PickPanel() {
       setError('ライフを 1 つ以上選んでください');
       return;
     }
-    if (secret === null || !selected.includes(secret)) {
-      setError('SECRET を選抜の中から 1 つ指定してください');
-      return;
+    let secretIndexes: number[];
+    if (allSecret) {
+      secretIndexes = selected;
+    } else {
+      if (secret === null || !selected.includes(secret)) {
+        setError('SECRET を選抜の中から 1 つ指定してください');
+        return;
+      }
+      secretIndexes = [secret];
     }
     setBusy(true);
     setError('');
-    const r = await api.pickLives({ selectedIndices: selected, secretIndex: secret });
+    const r = await api.pickLives({ selectedIndices: selected, secretIndexes });
     if (!r.ok) {
       setError(r.message);
       setBusy(false);
@@ -51,7 +58,9 @@ export function PickPanel() {
   return (
     <div className="section">
       <span className="label">
-        合計 {limit} 以下から最大 {maxLives} 個をライフに。うち 1 つを「秘」に
+        {allSecret
+          ? `合計 ${limit} 以上から最大 ${maxLives} 個をライフに（すべて SECRET）`
+          : `合計 ${limit} 以上から最大 ${maxLives} 個をライフに。うち 1 つを「秘」に`}
       </span>
       {candidates.map((c, i) => (
         <div className="cand" key={i}>
@@ -64,17 +73,19 @@ export function PickPanel() {
           />
           <span className={`word${c.pickable ? '' : ' pickable-no'}`}>{c.concept}</span>
           <span className="num num-big">{c.total}</span>
-          <label>
-            秘
-            <input
-              type="radio"
-              name="secret"
-              checked={secret === i}
-              disabled={!selected.includes(i)}
-              onChange={() => setSecret(i)}
-              aria-label={`${c.concept} を SECRET に`}
-            />
-          </label>
+          {allSecret ? null : (
+            <label>
+              秘
+              <input
+                type="radio"
+                name="secret"
+                checked={secret === i}
+                disabled={!selected.includes(i)}
+                onChange={() => setSecret(i)}
+                aria-label={`${c.concept} を SECRET に`}
+              />
+            </label>
+          )}
           <span className="why">
             {c.scores.map((s, j) => (
               <span key={j}>

@@ -34,8 +34,8 @@ export function FinishedPanel() {
               <span>{p.name}</span>
             </div>
             <div className="life">
-              {p.secretRevealed ? (
-                <span className="secret-mark">秘 {p.secretRevealed}</span>
+              {p.revealedSecrets.length ? (
+                <span className="secret-mark">秘 {p.revealedSecrets.join('、')}</span>
               ) : (
                 <span className="chips">SECRET なし</span>
               )}

@@ -8,7 +8,7 @@ export function BattlePanel() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const me = pub?.players.find((p) => p.seat === priv?.seat);
-  const band = pub?.config.destroyBand ?? { min: 10, max: 50 };
+  const destroyThreshold = pub?.config.destroyThreshold ?? 50;
 
   if (me && !me.alive) return <p className="notice section">脱落しました。観戦中です</p>;
   if (priv?.attackSubmitted)
@@ -36,7 +36,7 @@ export function BattlePanel() {
   return (
     <div className="section">
       <span className="label">
-        攻撃概念 — 相手ライフとの採点が {band.min} 以上 {band.max} 未満なら破壊
+        攻撃概念 — 相手ライフとの関連度が {destroyThreshold} を超えたら破壊
       </span>
       <div className="field">
         <input
@@ -58,10 +58,11 @@ export function BattlePanel() {
       </button>
       {priv?.myLives ? (
         <p className="notice">
-          自分のライフ: {priv.myLives.normals.join('、')}
-          {priv.myLives.secret && !priv.myLives.secretDestroyed
-            ? `、秘「${priv.myLives.secret}」`
-            : ''}
+          自分のライフ:{' '}
+          {[
+            ...priv.myLives.open,
+            ...priv.myLives.secrets.filter((s) => !s.destroyed).map((s) => `秘「${s.concept}」`),
+          ].join('、')}
           （自分の攻撃は自分のライフにも当たります）
         </p>
       ) : null}
