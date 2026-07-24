@@ -12,8 +12,17 @@ export interface Scorer {
   /**
    * 相手のライフを「破壊できそうな」攻撃概念を 1 つ返す（CPU 用）。
    * avoid: 使ってはいけない語（過去の攻撃・破壊済み概念・テーマ語。攻撃の繰り返しを防ぐ）
+   * intel: 自分の残ライフ（自滅回避）と、相手の秘ライフ × 過去攻撃の関連度（判定録からの逆算材料）
    */
-  generateAttack(themes: string[], targetConcepts: string[], avoid: string[]): Promise<string>;
+  generateAttack(
+    themes: string[],
+    targetConcepts: string[],
+    avoid: string[],
+    intel?: {
+      ownLives: string[];
+      clues: { owner: string; life: string; hints: { attack: string; score: number }[] }[];
+    },
+  ): Promise<string>;
 }
 
 /** エンジンに渡す前の最終防衛線: 常に有限な 0..100 の整数へ */

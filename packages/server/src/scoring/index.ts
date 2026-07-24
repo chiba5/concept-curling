@@ -126,18 +126,23 @@ export class ResilientScorer implements Scorer {
     themes: string[],
     targetConcepts: string[],
     avoid: string[],
+    intel?: {
+      ownLives: string[];
+      clues: { owner: string; life: string; hints: { attack: string; score: number }[] }[];
+    },
   ): Promise<string> {
-    const avoidSet = new Set(avoid.map((a) => a.trim()));
+    // 自分のライフと同一語も禁止扱い（自滅の機械的防止。関連度ベースの検査は decideAttack が担う）
+    const avoidSet = new Set([...avoid, ...(intel?.ownLives ?? [])].map((a) => a.trim()));
     if (this.primary) {
       try {
-        const a = (await this.primary.generateAttack(themes, targetConcepts, avoid)).trim();
+        const a = (await this.primary.generateAttack(themes, targetConcepts, avoid, intel)).trim();
         // primary が禁止語を無視した場合も demo 側の回避ロジックに落とす
         if (a && !avoidSet.has(a)) return a.slice(0, MAX_CONCEPT_LENGTH);
       } catch (e) {
         logPrimaryFailure('generateAttack', e);
       }
     }
-    return this.demo.generateAttack(themes, targetConcepts, avoid);
+    return this.demo.generateAttack(themes, targetConcepts, avoid, intel);
   }
 }
 

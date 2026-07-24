@@ -1,8 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import type { GameConfig, PrivateView, PublicState } from '@concept-curling/shared';
+import type {
+  GameConfig,
+  PrivateView,
+  PublicState,
+  ScoredCandidate,
+} from '@concept-curling/shared';
 import * as engine from '../engine/index.js';
 import type { Scorer } from '../scoring/scorer.js';
-import { decidePick } from './cpu.js';
+import { decideAttack, decidePick } from './cpu.js';
 
 export interface RoomCallbacks {
   onPublic(state: PublicState): void;
@@ -420,10 +425,14 @@ export class Room {
       );
       await this.submitConcepts(seat, concepts);
     } else if (phase === 'picking' && st.lives === null) {
+      const candidates = st.candidates ?? [];
+      // ライフの分散: 候補同士の関連度をペア採点し、1 撃で複数枚壊されない離れた組を選ばせる
+      const pairScore = await this.candidatePairScores(candidates);
       const pick = decidePick(
-        st.candidates ?? [],
+        candidates,
         this.state.config.maxLives,
         this.state.config.allSecret,
+        pairScore,
       );
       if (pick) await this.pickLives(seat, pick.selectedIndices, pick.secretIndexes);
     } else if (phase === 'battle' && st.attack === null) {
@@ -442,12 +451,78 @@ export class Room {
           ...(st.lives?.secrets.filter((x) => !x.destroyed).map((x) => x.concept) ?? []),
         ]),
       ];
-      const attack = await this.scorer.generateAttack(
+      const attack = await decideAttack(
+        this.scorer,
         [...this.state.themes],
         targets.length ? targets : [...this.state.themes],
         avoid,
+        {
+          ownLives: [
+            ...(st.lives?.open ?? []),
+            ...(st.lives?.secrets.filter((x) => !x.destroyed).map((x) => x.concept) ?? []),
+          ],
+          clues: this.collectClues(seat),
+        },
+        this.state.config.destroyThreshold,
       );
       await this.attack(seat, attack);
     }
+  }
+
+  /** 候補同士の関連度行列（対称・対角 100）。CPU 選抜の分散判断に使う */
+  private async candidatePairScores(candidates: ScoredCandidate[]): Promise<number[][]> {
+    const n = candidates.length;
+    const pairs: { a: string; b: string; i: number; j: number }[] = [];
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        pairs.push({
+          a: candidates[i]?.concept ?? '',
+          b: candidates[j]?.concept ?? '',
+          i,
+          j,
+        });
+      }
+    }
+    const matrix: number[][] = Array.from({ length: n }, (_, i) =>
+      Array.from({ length: n }, (_, j) => (i === j ? 100 : 0)),
+    );
+    if (!pairs.length) return matrix;
+    const scored = await this.scorer.scorePairs(pairs.map((p) => ({ a: p.a, b: p.b })));
+    pairs.forEach((p, k) => {
+      const v = scored[k]?.score ?? 0;
+      const row = matrix[p.i];
+      const col = matrix[p.j];
+      if (row) row[p.j] = v;
+      if (col) col[p.i] = v;
+    });
+    return matrix;
+  }
+
+  /**
+   * 判定録から逆算できる手掛かりを集める: 相手の未破壊 SECRET ごとに「過去の攻撃語 × 関連度」。
+   * targetOrdinal は現在の open 数 + secrets の元位置で照合する（allSecret では常に安定。
+   * legacy モードで open が減った場合は過去ターンの序数とずれ得るが、手掛かりはヒューリスティックとして許容）
+   */
+  private collectClues(
+    seat: number,
+  ): { owner: string; life: string; hints: { attack: string; score: number }[] }[] {
+    const clues: { owner: string; life: string; hints: { attack: string; score: number }[] }[] = [];
+    for (const s of this.state.seats) {
+      if (!s.alive || s.seat === seat || !s.lives) continue;
+      const openLen = s.lives.open.length;
+      s.lives.secrets.forEach((sec, idx) => {
+        if (sec.destroyed) return;
+        const ordinal = openLen + idx;
+        const hints = this.state.turns
+          .flatMap((t) => t.details)
+          .filter(
+            (d) =>
+              d.targetSeat === s.seat && d.targetKind === 'secret' && d.targetOrdinal === ordinal,
+          )
+          .map((d) => ({ attack: d.atkConcept, score: d.score }));
+        if (hints.length) clues.push({ owner: s.name, life: `秘${ordinal + 1}`, hints });
+      });
+    }
+    return clues;
   }
 }

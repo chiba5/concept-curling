@@ -199,6 +199,27 @@ describe('ResilientScorer', () => {
     expect(a).not.toBe('嵐');
     expect(a.trim().length).toBeGreaterThan(0);
   });
+  it('generateAttack: 自分のライフと手掛かりがプロンプトへ渡り、自ライフ同一語の応答は demo に落ちる', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(openaiResponse({ attack: '書庫' }));
+    const s = new ResilientScorer(
+      new OpenAIScorer(opts(fetchFn as typeof fetch)),
+      new DemoScorer(),
+      { provider: 'openai', model: 'gpt-4o-mini' },
+    );
+    const intel = {
+      ownLives: ['書庫'],
+      clues: [{ owner: '検証者', life: '秘1', hints: [{ attack: '嵐', score: 60 }] }],
+    };
+    const a = await s.generateAttack(['星座'], ['灯台'], [], intel);
+    expect(a).not.toBe('書庫'); // 自分のライフと同一語は採用しない
+    const body = JSON.parse((fetchFn.mock.calls[0]?.[1] as RequestInit).body as string) as {
+      messages: { content: string }[];
+    };
+    const user = body.messages[1]?.content ?? '';
+    expect(user).toContain('書庫'); // 自分のライフ
+    expect(user).toContain('秘1'); // 手掛かり
+    expect(user).toContain('60');
+  });
   it('primary 無し（demo 単独）でも全メソッドが動く', async () => {
     const s = new ResilientScorer(null, new DemoScorer(), { provider: 'demo', model: 'demo' });
     await expect(s.scorePairs([{ a: 'x', b: 'x' }])).resolves.toEqual([

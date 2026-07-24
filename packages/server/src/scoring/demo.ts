@@ -71,8 +71,14 @@ export class DemoScorer implements Scorer {
     const pool = CONCEPT_POOL.filter((c) => !avoidSet.has(c));
     return Promise.resolve(sample(pool, n));
   }
-  generateAttack(_themes: string[], targetConcepts: string[], avoid: string[]): Promise<string> {
-    const avoidSet = new Set(avoid.map((a) => a.trim()));
+  generateAttack(
+    _themes: string[],
+    targetConcepts: string[],
+    avoid: string[],
+    intel?: { ownLives: string[]; clues: unknown[] },
+  ): Promise<string> {
+    // demo は intel の手掛かりを使わないが、自分のライフと同一語だけは避ける
+    const avoidSet = new Set([...avoid, ...(intel?.ownLives ?? [])].map((a) => a.trim()));
     const derive = (base: string): string =>
       base.length >= 2 ? `${base.slice(0, base.length - 1)}装置` : '灯台装置';
     // 対象をシャッフルして avoid に当たらない攻撃語を探す。全滅なら連番で回避
