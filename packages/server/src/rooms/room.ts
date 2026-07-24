@@ -451,20 +451,36 @@ export class Room {
           ...(st.lives?.secrets.filter((x) => !x.destroyed).map((x) => x.concept) ?? []),
         ]),
       ];
-      const attack = await decideAttack(
+      const intel = {
+        ownLives: [
+          ...(st.lives?.open ?? []),
+          ...(st.lives?.secrets.filter((x) => !x.destroyed).map((x) => x.concept) ?? []),
+        ],
+        clues: this.collectClues(seat),
+      };
+      let attack = await decideAttack(
         this.scorer,
         [...this.state.themes],
         targets.length ? targets : [...this.state.themes],
         avoid,
-        {
-          ownLives: [
-            ...(st.lives?.open ?? []),
-            ...(st.lives?.secrets.filter((x) => !x.destroyed).map((x) => x.concept) ?? []),
-          ],
-          clues: this.collectClues(seat),
-        },
+        intel,
         this.state.config.destroyThreshold,
       );
+      // 生成中に他 CPU が同じ攻撃を提出していたら 1 回だけ作り直す
+      // （複数 CPU の cpuAct は並行して走るため、avoid 構築時点では互いの攻撃が見えない）
+      const dupNow = (): boolean =>
+        this.state.seats.some((s) => s.seat !== seat && s.attack === attack);
+      if (dupNow()) {
+        const latest = this.state.seats.flatMap((s) => (s.attack !== null ? [s.attack] : []));
+        attack = await decideAttack(
+          this.scorer,
+          [...this.state.themes],
+          targets.length ? targets : [...this.state.themes],
+          [...new Set([...avoid, ...latest, attack])],
+          intel,
+          this.state.config.destroyThreshold,
+        );
+      }
       await this.attack(seat, attack);
     }
   }
