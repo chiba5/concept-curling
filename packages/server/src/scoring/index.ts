@@ -106,6 +106,19 @@ export class ResilientScorer implements Scorer {
         if (out.length === n) break;
       }
     }
+    if (out.length < n) {
+      // demo プールが avoid で枯渇（CPU 多数 × 概念数大）。n 個未満を返すとエンジンが提出を拒否して
+      // ゲームが submitting で停止するため、他プレイヤーとの重複回避をベストエフォートに緩めて必ず n 個返す。
+      // プレイヤー内の重複（エンジンが拒否する）だけは seen で守る
+      const relaxed = await this.demo.generateConcepts(themes, n, [...seen]);
+      for (const c of relaxed) {
+        if (!seen.has(c)) {
+          seen.add(c);
+          out.push(c);
+          if (out.length === n) break;
+        }
+      }
+    }
     return out.slice(0, n);
   }
 

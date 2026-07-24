@@ -1,6 +1,6 @@
 # 概念カーリング（Concept Curling）
 
-LLM が「概念どうしの無関係度」を採点する、2〜6 人用のオンライン対戦ゲームです。
+LLM が「概念どうしの関連度」を採点する、2〜6 人用のオンライン対戦ゲームです。
 
 デモ: https://concept-curling.onrender.com （Render Free — 初回アクセスは起動に 20 秒ほどかかります）
 

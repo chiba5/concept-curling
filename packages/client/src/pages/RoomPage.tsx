@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { TurnRecord } from '@concept-curling/shared';
 import { api, session } from '../api.js';
@@ -24,6 +24,7 @@ export function RoomPage() {
   const joinedRoomRef = useRef<string | null>(null);
   const [revealTurn, setRevealTurn] = useState<TurnRecord | null>(null);
   const seenTurnsRef = useRef<number | null>(null);
+  const closeReveal = useCallback(() => setRevealTurn(null), []);
 
   const join = async (name: string): Promise<void> => {
     const token = session.getToken(roomId) ?? undefined;
@@ -77,6 +78,12 @@ export function RoomPage() {
     if (!pub) return;
     if (seenTurnsRef.current === null) {
       seenTurnsRef.current = pub.turns.length;
+      return;
+    }
+    if (pub.turns.length < seenTurnsRef.current) {
+      // 再戦リセットで turns が空に戻る。基準を追従させないと次ゲームの演出が旧ターン数を超えるまで出ない
+      seenTurnsRef.current = pub.turns.length;
+      setRevealTurn(null);
       return;
     }
     if (pub.turns.length > seenTurnsRef.current) {
@@ -219,11 +226,7 @@ export function RoomPage() {
       ) : null}
 
       {revealTurn ? (
-        <ResolutionReveal
-          turn={revealTurn}
-          players={pub.players}
-          onDone={() => setRevealTurn(null)}
-        />
+        <ResolutionReveal turn={revealTurn} players={pub.players} onDone={closeReveal} />
       ) : null}
 
       <div className="section">

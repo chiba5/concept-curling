@@ -31,6 +31,7 @@ export function resolveTurn(state: GameState, results: PairResult[]): Result {
     const reason = res?.reason ?? '';
     const owner = next.seats.find((s) => s.seat === pair.targetSeat);
     const lives = owner?.lives;
+    // 概念文字列での照合は「同一プレイヤー内で概念は重複しない」（submitConcepts が拒否）ことに依存する
     const secret =
       pair.targetKind === 'secret'
         ? lives?.secrets.find((sec) => sec.concept === pair.targetConcept)

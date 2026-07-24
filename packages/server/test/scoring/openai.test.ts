@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { OpenAIScorer } from '../../src/scoring/openai.js';
 import { ResilientScorer, createScorerFromEnv } from '../../src/scoring/index.js';
-import { DemoScorer } from '../../src/scoring/demo.js';
+import { CONCEPT_POOL, DemoScorer } from '../../src/scoring/demo.js';
 
 /** OpenAI chat.completions 形式のモック応答を作る */
 function openaiResponse(content: unknown): Response {
@@ -164,6 +164,14 @@ describe('ResilientScorer', () => {
     expect(c).not.toContain('灯台');
     expect(c).toHaveLength(3);
     expect(new Set(c).size).toBe(3);
+  });
+  it('generateConcepts は avoid で demo プールが枯渇しても n 個返す（重複回避を緩和）', async () => {
+    // CPU 多数 × 概念数大で他プレイヤーの概念が demo プール全体を覆うケース。
+    // n 個未満を返すとエンジンが提出を拒否してゲームが submitting で停止するため、n 個保証が必須
+    const s = new ResilientScorer(null, new DemoScorer(), { provider: 'demo', model: 'demo' });
+    const c = await s.generateConcepts(['星座'], 5, [...CONCEPT_POOL]);
+    expect(c).toHaveLength(5);
+    expect(new Set(c).size).toBe(5);
   });
   it('primary 無し（demo 単独）でも全メソッドが動く', async () => {
     const s = new ResilientScorer(null, new DemoScorer(), { provider: 'demo', model: 'demo' });

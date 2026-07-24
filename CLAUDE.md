@@ -1,6 +1,6 @@
 # concept-curling — CLAUDE.md
 
-LLM が「概念どうしの無関係度」を採点する、2〜6 人用のオンライン対戦ゲーム。TypeScript monorepo（npm workspaces）でゼロから書き直した v2 実装が正。
+LLM が「概念どうしの関連度」を採点する、2〜6 人用のオンライン対戦ゲーム。TypeScript monorepo（npm workspaces）でゼロから書き直した v2 実装が正。
 リポジトリ: `chiba5/concept-curling`（private=false）／ デモ: https://concept-curling.onrender.com （Render Free）
 
 ---
@@ -31,7 +31,7 @@ packages/client/     React 19 + Vite SPA（react-router、useReducer + Context�
 
 ## 3. ゲームルール正
 
-ルールの正典は `docs/superpowers/specs/2026-07-23-v2-rewrite-design.md` §3。要点のみここに書く：
+ルールの正典は**この節**。`docs/superpowers/specs/2026-07-23-v2-rewrite-design.md` §3 は v2.0 時点の凍結履歴で、スコアの向き・閾値・SECRET 既定は v2.1 で改定済み（同スペックの記述をルールとして参照しないこと）：
 
 - プレイヤー数・提出概念数・最大ライフ・破壊閾値・選抜下限・テーマ数などは `GameConfig` としてルーム作成時にパラメータ化されている（2〜6 人、既定 3 人）
 - スコアの向き（v2.1 で反転）: **0 = 無関係 / 100 = 完全一致**。実装・UI 文言とも旧 v2（0=深い関連/100=浅い）とは逆なので混同注意

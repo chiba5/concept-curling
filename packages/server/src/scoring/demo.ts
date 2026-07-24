@@ -24,7 +24,7 @@ const THEME_POOL = ['断章', '無音帯', '星座', '航海', '茶道', '製本
 // 注意: '灯台' はプールに入れない。cpu-game テストは人間の SECRET を '灯台' に固定しており、
 // CPU の SECRET が '灯台' を引くと、人間がその CPU を狙った完全一致攻撃が
 // friendly fire（attackPairs は自席のライフも対象に含む）で自分の SECRET も破壊してしまう。
-const CONCEPT_POOL = [
+export const CONCEPT_POOL = [
   '羊皮紙',
   '炊飯器',
   '季節風',
