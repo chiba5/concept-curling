@@ -5,11 +5,12 @@ LLM が「概念どうしの無関係度」を採点する、2〜6 人用のオ�
 
 ---
 
-## 1. 現状：v2 は `feat/v2-rewrite` で完成、main マージは未実施
+## 1. 現状：main が正典・Render にデプロイ済み（2026-07-24 リリース）
 
-- v2（本 CLAUDE.md が説明する実装）は `feat/v2-rewrite` ブランチで完成済み。`npm run check` / `npm run e2e` は全 green
-- **main へのマージと Render のデプロイ対象切替は PENDING**。ユーザー確認後に実施する（このブランチを main にする作業自体は着手済みではない）
-- 旧実装（単一 `server.js` の `feat/online-conversion` 版）はこの書き換えで役目を終えている。旧ルール（3人固定・概念5つ非公開提出のスコア正規化 [15..85] 等）はコードとしてもドキュメントとしてももう存在しない。過去の記述を参照しないこと
+- v2 は PR #1 で main にマージ済み（履歴保存の merge commit 方式）。`npm run check` / `npm run e2e` / CI（check + e2e）全 green
+- Render（既存サービス）は main をデプロイ済み。Build `npm ci && npm run build` / Start `node packages/server/dist/index.js` / Health `/healthz` / env に `SCORING_PROVIDER=openai` + `OPENAI_API_KEY` 設定済み
+- **既知の問題 2 件（2026-07-24 時点）**: ① OpenAI が全リクエスト HTTP 429（アカウントのクレジット切れとみられる）→ 本番は demo フォールバックで採点中。ユーザーが OpenAI 課金を復旧すれば自動で LLM 採点に戻る ② GitHub push の auto-deploy が発火しない（webhook 切れ）→ push 後は Render ダッシュボードから Manual Deploy が必要
+- 旧実装（単一 `server.js` の `feat/online-conversion` 版）は役目を終えている。旧ルールはコードとしてもドキュメントとしてももう存在しない。過去の記述を参照しないこと
 
 ---
 

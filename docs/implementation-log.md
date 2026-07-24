@@ -29,3 +29,11 @@
 - デザイン: 活版スタイルを styles.css 1 枚に集約（流体タイポ clamp / 朱の打ち消し線 = 唯一のアニメーション）
 - E2E: Playwright（demo 採点・決定的）。/playtest スキルを完了宣言前の必須検証に昇格
 - 残課題: main マージ（ユーザー確認後）/ Render デプロイ対象切替 / デモ URL の動作確認
+
+## 2026-07-24 リリース（PR #1 → main → Render）
+
+- PR #1 を merge commit 方式でマージ（CI check + e2e green を確認）。main が正典に
+- Render 既存サービスを main へ切替（設定はユーザーが実施、SCORING_PROVIDER=openai は Claude がブラウザ操作で追加）
+- 本番実プレイ検証: ソロ導線 → 提出 → 選抜 → バトル → 判定録まで全パイプライン動作確認（完全一致 15 で破壊・SECRET 伏せ・採点根拠表示）
+- 障害調査: 全採点が demo フォールバック → ResilientScorer に失敗理由の warn ログを追加してデプロイ → **OpenAI HTTP 429（アカウントのクォータ切れ）と確定**。フォールバック設計どおりゲームは正常動作。OpenAI 課金復旧で自動回復する
+- 発見: GitHub push の auto-deploy が発火しない（webhook 切れ）。当面は Manual Deploy で運用
