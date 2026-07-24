@@ -6,6 +6,12 @@ import { pairKey, type PairScore, type Scorer } from './scorer.js';
 
 const CACHE_MAX = 5000;
 
+/** primary 失敗の原因をログに残す（err.message のみ。キー等の秘密情報は含まれない） */
+function logPrimaryFailure(method: string, e: unknown): void {
+  const message = e instanceof Error ? e.message : String(e);
+  console.warn(`[scoring] primary ${method} failed, falling back to demo: ${message}`);
+}
+
 /** primary（無ければ demo 単独）+ LRU キャッシュ + demo 穴埋め。どのメソッドも reject しない */
 export class ResilientScorer implements Scorer {
   private cache = new LruCache<PairScore>(CACHE_MAX);
@@ -37,8 +43,9 @@ export class ResilientScorer implements Scorer {
           const hit = sparse.get(k);
           if (hit) results[origIdx] = hit;
         });
-      } catch {
-        // 全滅 → demo 穴埋めに任せる
+      } catch (e) {
+        // 全滅 → demo 穴埋めに任せる（原因はログへ。秘密情報は含まれない）
+        logPrimaryFailure('scorePairs', e);
       }
     }
     const missing = results.flatMap((r, i) => (r === null ? [i] : []));
@@ -62,8 +69,8 @@ export class ResilientScorer implements Scorer {
     if (this.primary) {
       try {
         return await this.primary.generateThemes(count);
-      } catch {
-        /* fallthrough */
+      } catch (e) {
+        logPrimaryFailure('generateThemes', e);
       }
     }
     return this.demo.generateThemes(count);
@@ -74,7 +81,8 @@ export class ResilientScorer implements Scorer {
     if (this.primary) {
       try {
         raw = await this.primary.generateConcepts(themes, n);
-      } catch {
+      } catch (e) {
+        logPrimaryFailure('generateConcepts', e);
         raw = [];
       }
     }
@@ -105,8 +113,8 @@ export class ResilientScorer implements Scorer {
       try {
         const a = (await this.primary.generateAttack(themes, targetConcepts)).trim();
         if (a) return a.slice(0, MAX_CONCEPT_LENGTH);
-      } catch {
-        /* fallthrough */
+      } catch (e) {
+        logPrimaryFailure('generateAttack', e);
       }
     }
     return this.demo.generateAttack(themes, targetConcepts);
