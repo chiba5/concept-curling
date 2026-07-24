@@ -15,7 +15,7 @@ type JoinState = 'connecting' | 'joined' | 'need-name' | 'error';
 export function RoomPage() {
   const { roomId = '' } = useParams();
   const navigate = useNavigate();
-  const { pub, priv, clear } = useGame();
+  const { pub, priv, clear, connected } = useGame();
   const [joinState, setJoinState] = useState<JoinState>('connecting');
   const [error, setError] = useState('');
   const [nameInput, setNameInput] = useState(session.getName());
@@ -50,6 +50,23 @@ export function RoomPage() {
     void join(name);
     // 依存は roomId のみ（join はマウント時 1 回で良い）
   }, [roomId]);
+
+  // トランスポート再接続時は同じ席へ再 join する（spec §6.2: 画面ロック・回線切替からの復帰）
+  const wasConnectedRef = useRef(true);
+  useEffect(() => {
+    if (!connected) {
+      wasConnectedRef.current = false;
+      return;
+    }
+    if (!wasConnectedRef.current && joinState === 'joined') {
+      wasConnectedRef.current = true;
+      const name = session.getName();
+      if (name) void join(name);
+    } else {
+      wasConnectedRef.current = true;
+    }
+    // 依存は connected と joinState のみ（join・session はレンダー間で安定した参照として扱う）
+  }, [connected, joinState]);
 
   const leave = async (): Promise<void> => {
     await api.leaveRoom();
@@ -136,6 +153,13 @@ export function RoomPage() {
       {pub.phase === 'waiting' ? (
         <div className="section">
           <span className="label">あと {pub.config.playerCount - pub.players.length} 人</span>
+          <p className="notice">
+            ルール: {pub.config.playerCount}人 ／ 概念{pub.config.conceptsPerPlayer}個提出 ／
+            ライフ最大
+            {pub.config.maxLives} ／ 選抜上限{pub.config.pickSumLimit} ／ 破壊帯{' '}
+            {pub.config.destroyBand.min}–{pub.config.destroyBand.max - 1} ／ テーマ
+            {pub.config.themes.count}個
+          </p>
           <p className="notice">この URL を共有すると友人が参加できます</p>
           <p>
             <button

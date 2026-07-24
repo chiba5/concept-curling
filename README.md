@@ -29,9 +29,11 @@ TypeScript monorepo (npm workspaces) / React 19 + Vite / Express 4 + socket.io /
 
 ```bash
 npm install
-npm run dev     # server: tsx watch + client: vite（プロキシ経由）
+npm run dev -w @concept-curling/server   # サーバ (tsx watch, :3000)
+npm run dev -w @concept-curling/client   # クライアント (vite, :5173 → /api,/socket.io をプロキシ)
 npm run check   # lint + typecheck + test + build
 npm run e2e     # Playwright
+# 初回は npx playwright install chromium が必要（ビルド済みサーバを自動起動して検証）
 ```
 
 環境変数は `.env.example` を参照してください。`OPENAI_API_KEY` が無くても簡易採点（DemoScorer）で全機能が動作します。
