@@ -66,3 +66,10 @@
 - クライアント: 関連度表示・全 SECRET UI・ルーム設定フォーム・判定録の複数秘列対応（`targetOrdinal` で列を分離）
 - **逐次解決演出**（本タスクの核心）: `ResolutionReveal` コンポーネントを追加し、ターン結果を「攻撃 1 つずつ表示 → 破壊 1 枚ずつアニメーション → 全部終わってから判定録に反映」の順で見せる。演出中は判定録から最新ターンを隠し、終わったら合流させる。初回受信・再接続復元時は演出しない（`seenTurnsRef` で判定）。`prefers-reduced-motion: reduce` と Playwright の `contextOptions.reducedMotion` で機械的検証は演出をスキップする
 - ドキュメント整合: `CLAUDE.md` §3/§5・`README.md` のルール記述を新ルールへ更新（Lobby の文言と一致）
+
+## 2026-07-24 v2.1 リリース（Opus レビュー → PR #2 → main → 本番検証）
+
+- Opus 全体レビュー（3 コミット一括）: Critical 0 / Important 2。①再戦リセットで turns が減っても `seenTurnsRef` が旧値のままで 2 戦目の逐次演出が死ぬ ②CPU 概念の avoid-list で demo プール（14 語）が枯渇すると CPU が提出できずゲーム停止（CPU 3 体以上 or 概念数 7 以上で発現）。両方 + Minor 4 件（正典ポインタ・冒頭文言・onDone useCallback・SECRET 照合コメント）を修正してからマージ
+- プール枯渇の修正は `ResilientScorer.generateConcepts` 側に実装（demo 側で緩和しても上流の avoid 再フィルタで打ち消されるため）。プレイヤー内一意性は維持し、他プレイヤーとの重複回避だけをベストエフォートに緩和 + 回帰テスト
+- ルールの正典を CLAUDE.md §3 に移動（旧スペック §3 は v2.0 凍結履歴と明記）
+- PR #2 マージ（CI check + e2e green）→ auto-deploy → 本番実プレイで全項目検証: 関連度の向き（眠り: 夢 90/風船 20）/ 全 SECRET 選抜 / 逐次演出（関連度・破壊理由・タップスキップ）/ 判定録の複数秘列 / CPU 概念重複なし（幻想・浮遊・願望 vs 星・雲・音）/ 敗スタンプ + 全 SECRET 公開 / **再戦 2 戦目の第 1 ターンで演出発火（レビュー指摘①の修正を本番で実証）**
