@@ -76,33 +76,47 @@ export class ResilientScorer implements Scorer {
     return this.demo.generateThemes(count);
   }
 
-  async generateConcepts(themes: string[], n: number): Promise<string[]> {
+  async generateConcepts(themes: string[], n: number, avoid: string[]): Promise<string[]> {
+    const avoidSet = new Set(avoid.map((a) => a.trim()));
     let raw: string[] = [];
     if (this.primary) {
       try {
-        raw = await this.primary.generateConcepts(themes, n);
+        raw = await this.primary.generateConcepts(themes, n, avoid);
       } catch (e) {
         logPrimaryFailure('generateConcepts', e);
         raw = [];
       }
     }
-    // 正規化: trim・長さ制限・重複除去。不足分は demo プールから補充（エンジン検証を必ず通る形にする）
+    // 正規化: trim・長さ制限・重複除去・avoid 除外。不足分は demo プールから補充（エンジン検証を必ず通る形にする）
     const seen = new Set<string>();
     const out: string[] = [];
     for (const c of raw) {
       const t = c.trim().slice(0, MAX_CONCEPT_LENGTH);
-      if (t && !seen.has(t)) {
+      if (t && !seen.has(t) && !avoidSet.has(t)) {
         seen.add(t);
         out.push(t);
         if (out.length === n) return out;
       }
     }
-    const fill = await this.demo.generateConcepts(themes, n + out.length);
+    const fill = await this.demo.generateConcepts(themes, n + out.length, [...avoidSet, ...seen]);
     for (const c of fill) {
-      if (!seen.has(c)) {
+      if (!seen.has(c) && !avoidSet.has(c)) {
         seen.add(c);
         out.push(c);
         if (out.length === n) break;
+      }
+    }
+    if (out.length < n) {
+      // demo プールが avoid で枯渇（CPU 多数 × 概念数大）。n 個未満を返すとエンジンが提出を拒否して
+      // ゲームが submitting で停止するため、他プレイヤーとの重複回避をベストエフォートに緩めて必ず n 個返す。
+      // プレイヤー内の重複（エンジンが拒否する）だけは seen で守る
+      const relaxed = await this.demo.generateConcepts(themes, n, [...seen]);
+      for (const c of relaxed) {
+        if (!seen.has(c)) {
+          seen.add(c);
+          out.push(c);
+          if (out.length === n) break;
+        }
       }
     }
     return out.slice(0, n);

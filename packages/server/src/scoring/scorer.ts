@@ -1,4 +1,4 @@
-/** スコアの向き: 0 = 極めて深い関連 / 100 = 極めて浅い（無関係） */
+/** スコアの向き: 0 = 無関係 / 100 = 完全一致（一言一句同じ） */
 export interface PairScore {
   score: number;
   reason: string;
@@ -7,8 +7,9 @@ export interface PairScore {
 export interface Scorer {
   scorePairs(pairs: { a: string; b: string }[]): Promise<PairScore[]>;
   generateThemes(count: number): Promise<string[]>;
-  generateConcepts(themes: string[], n: number): Promise<string[]>;
-  /** 相手の公開ライフに「破壊帯に入りそうな」攻撃概念を 1 つ返す（CPU 用） */
+  /** avoid: 生成結果が重複してはいけない既存概念（他プレイヤーの提出済み概念・テーマ語など） */
+  generateConcepts(themes: string[], n: number, avoid: string[]): Promise<string[]>;
+  /** 相手のライフを「破壊できそうな」攻撃概念を 1 つ返す（CPU 用） */
   generateAttack(themes: string[], targetConcepts: string[]): Promise<string>;
 }
 

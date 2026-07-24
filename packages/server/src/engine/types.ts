@@ -24,7 +24,7 @@ export interface SeatState {
   /** submitting: 採点済み候補（未採点は null） */
   candidates: ScoredCandidate[] | null;
   /** picking 完了までは null */
-  lives: { normals: string[]; secret: SecretLife | null } | null;
+  lives: { open: string[]; secrets: SecretLife[] } | null;
   /** battle: このターンの攻撃（未提出は null） */
   attack: string | null;
 }
@@ -61,8 +61,8 @@ export const err = <T = GameState>(code: string, message: string): Result<T> => 
 /** 生存ライフ数（保存しない。常に計算）*/
 export function lifeCount(seat: SeatState): number {
   if (!seat.lives) return 0;
-  const secretAlive = seat.lives.secret && !seat.lives.secret.destroyed ? 1 : 0;
-  return seat.lives.normals.length + secretAlive;
+  const secretsAlive = seat.lives.secrets.filter((s) => !s.destroyed).length;
+  return seat.lives.open.length + secretsAlive;
 }
 
 export function aliveSeats(state: GameState): SeatState[] {

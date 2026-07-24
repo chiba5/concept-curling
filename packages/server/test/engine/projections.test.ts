@@ -10,8 +10,8 @@ describe('toPublicState', () => {
     const pub = toPublicState(inBattle());
     const p1 = pub.players[0];
     expect(p1?.livesPublic).toEqual(['概念1-1', '概念1-2']);
-    expect(p1?.secretRevealed).toBeNull();
-    expect(p1?.hasSecret).toBe(true);
+    expect(p1?.revealedSecrets).toEqual([]);
+    expect(p1?.secretCount).toBe(1);
     expect(JSON.stringify(pub)).not.toContain('candidates');
     expect(pub.players.every((p) => p.lifeCount === 3)).toBe(true);
   });
@@ -38,7 +38,7 @@ describe('toPublicState', () => {
   });
   it('脱落席の ready は常に false / 選抜済みの ready は true', () => {
     let s = allScored();
-    s = unwrap(pickLives(s, 1, [0], 0));
+    s = unwrap(pickLives(s, 1, [0], [0]));
     const dead = structuredClone(s);
     const seat2 = dead.seats[1];
     if (seat2) seat2.alive = false;
@@ -55,12 +55,17 @@ describe('toPublicState', () => {
     s.phase = 'finished';
     s.winnerSeat = 1;
     const pub = toPublicState(s);
-    expect(pub.players[0]?.secretRevealed).toBe('概念1-0');
-    expect(pub.players[1]?.secretRevealed).toBe('概念2-0');
+    expect(pub.players[0]?.revealedSecrets).toEqual(['概念1-0']);
+    expect(pub.players[1]?.revealedSecrets).toEqual(['概念2-0']);
   });
   it('finished 以外では未破壊 SECRET は公開されない（回帰）', () => {
     const pub = toPublicState(inBattle());
-    expect(pub.players.every((p) => p.secretRevealed === null)).toBe(true);
+    expect(pub.players.every((p) => p.revealedSecrets.length === 0)).toBe(true);
+  });
+  it('allSecret では livesPublic が常に空で secretCount がライフ数と一致する', () => {
+    const pub = toPublicState(inBattle(cfg({ allSecret: true })));
+    expect(pub.players.every((p) => p.livesPublic.length === 0)).toBe(true);
+    expect(pub.players.every((p) => p.secretCount === p.lifeCount)).toBe(true);
   });
 });
 
@@ -70,12 +75,12 @@ describe('toPrivateView', () => {
     expect(v.seat).toBe(1);
     expect(v.playerToken).toBe('token-1');
     expect(v.candidates).toHaveLength(5);
-    expect(v.myLives).toEqual({ normals: [], secret: null, secretDestroyed: false });
+    expect(v.myLives).toEqual({ open: [], secrets: [] });
   });
   it('選抜後は自分の SECRET が見える', () => {
     const v = toPrivateView(inBattle(), 1, 't');
-    expect(v.myLives.secret).toBe('概念1-0');
-    expect(v.myLives.normals).toEqual(['概念1-1', '概念1-2']);
+    expect(v.myLives.secrets).toEqual([{ concept: '概念1-0', destroyed: false }]);
+    expect(v.myLives.open).toEqual(['概念1-1', '概念1-2']);
   });
   it('採点前は candidates が空配列', () => {
     const v = toPrivateView(inSubmitting(), 1, 't');

@@ -17,16 +17,14 @@ describe('CPU 自動対局', () => {
     await room.submitConcepts(1, ['灯台', '羊皮紙', '簿記']);
     // CPU 2 体が自動提出 → 全員採点完了 → picking
     await until(() => c.last()?.phase === 'picking', 5000);
-    await room.pickLives(1, [0], 0);
+    await room.pickLives(1, [0], [0]);
     await until(() => c.last()?.phase === 'battle', 5000);
 
-    // サーバ側テストなので CPU のライフを直接読み、完全一致攻撃（score 15、帯内）で確実に破壊する
+    // サーバ側テストなので CPU のライフを直接読み、完全一致攻撃（score 85、destroyThreshold 50 超）で確実に破壊する
     for (let i = 0; i < 10 && room.state.phase === 'battle'; i++) {
       const target = room.state.seats.find((s) => s.seat !== 1 && s.alive);
-      const concept =
-        target?.lives?.secret && !target.lives.secret.destroyed
-          ? target.lives.secret.concept
-          : target?.lives?.normals[0];
+      const secret = target?.lives?.secrets.find((sec) => !sec.destroyed);
+      const concept = secret?.concept ?? target?.lives?.open[0];
       if (!concept) break;
       const r = await room.attack(1, concept);
       expect(r.ok).toBe(true);
@@ -38,7 +36,7 @@ describe('CPU 自動対局', () => {
   }, 20000);
 
   it('前提: 人間の固定 SECRET「灯台」は CPU 語彙プールに含まれない（friendly fire 自滅の防止）', async () => {
-    const pool = await new DemoScorer().generateConcepts([], 14);
+    const pool = await new DemoScorer().generateConcepts([], 14, []);
     expect(pool).not.toContain('灯台');
   });
 });

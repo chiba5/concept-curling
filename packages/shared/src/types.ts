@@ -1,6 +1,6 @@
 /**
- * スコアの向き: 0 = 極めて深い関連 / 100 = 極めて浅い（無関係）。
- * 破壊判定: destroyBand.min <= score < destroyBand.max のライフが破壊される。
+ * スコアの向き: 0 = 無関係 / 100 = 完全一致（一言一句同じ）。
+ * 破壊判定: score > destroyThreshold のライフが破壊される。
  */
 
 export type Phase = 'waiting' | 'theming' | 'submitting' | 'picking' | 'battle' | 'finished';
@@ -17,8 +17,10 @@ export interface GameConfig {
   playerCount: number; // 2..6
   conceptsPerPlayer: number; // 3..9
   maxLives: number; // 1..conceptsPerPlayer-1
-  pickSumLimit: number; // 全テーマとのスコア合計の上限
-  destroyBand: { min: number; max: number }; // min < max、いずれも 0..100
+  pickMinTotal: number; // 全テーマとの関連度合計の下限
+  destroyThreshold: number; // 0..99、これを超えたら破壊
+  /** true なら選んだライフ全部が SECRET（公開ライフなし）。false は従来（公開 + SECRET 1 つ） */
+  allSecret: boolean;
   themes: ThemeConfig;
   graceSeconds: number; // 切断から CPU 代打までの猶予
 }
@@ -26,12 +28,12 @@ export interface GameConfig {
 /** submitting フェーズで採点された自分の候補（PrivateView 用） */
 export interface ScoredCandidate {
   concept: string;
-  /** themes と同順。scores[i] は themes[i] との無関係度 */
+  /** themes と同順。scores[i] は themes[i] との関連度 */
   scores: number[];
   /** scores と同順の採点根拠（20 字程度） */
   reasons: string[];
   total: number; // scores の合計
-  pickable: boolean; // total <= config.pickSumLimit
+  pickable: boolean; // total >= config.pickMinTotal
 }
 
 export interface PublicPlayer {
@@ -43,9 +45,9 @@ export interface PublicPlayer {
   /** 提出済みか等、フェーズ進行の待ち表示に使う */
   ready: boolean;
   lifeCount: number;
-  livesPublic: string[]; // 公開ライフ（SECRET を除く残存分）
-  secretRevealed: string | null; // 破壊等で公開された SECRET
-  hasSecret: boolean; // SECRET が未破壊で存在するか
+  livesPublic: string[]; // 公開ライフ（allSecret では常に []）
+  revealedSecrets: string[]; // 破壊等で公開された SECRET の概念
+  secretCount: number; // 未破壊 SECRET 数
   /** 切断中の human 席のみ非 null。この epoch ms を過ぎると CPU 代打（UI はカウントダウン表示に使う） */
   graceDeadline: number | null;
 }
@@ -55,6 +57,8 @@ export interface TurnDetail {
   atkConcept: string;
   targetSeat: number;
   targetKind: 'normal' | 'secret';
+  /** その所有者のライフ列内での安定序数。クライアントのマトリクス列対応に使う */
+  targetOrdinal: number;
   /** 未公開 SECRET は 'SECRET' に伏せる */
   targetLabel: string;
   score: number;
@@ -89,7 +93,7 @@ export interface PrivateView {
   /** 自分が提出した概念（未提出は null）。採点完了前の再接続復元に使う */
   myConcepts: string[] | null;
   candidates: ScoredCandidate[]; // submitting の採点完了後に入る
-  myLives: { normals: string[]; secret: string | null; secretDestroyed: boolean };
+  myLives: { open: string[]; secrets: { concept: string; destroyed: boolean }[] };
   attackSubmitted: boolean;
 }
 
@@ -119,8 +123,8 @@ export interface SubmitConceptsPayload {
 export interface PickLivesPayload {
   /** candidates のインデックス（pickable なもののみ、1..maxLives 個） */
   selectedIndices: number[];
-  /** selectedIndices に含まれる candidates インデックス */
-  secretIndex: number;
+  /** selectedIndices の部分集合。allSecret ルームでは selectedIndices と同値、従来モードはちょうど 1 個 */
+  secretIndexes: number[];
 }
 export interface AttackPayload {
   concept: string;

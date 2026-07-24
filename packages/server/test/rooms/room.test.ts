@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DemoScorer } from '../../src/scoring/demo.js';
 import { Room } from '../../src/rooms/room.js';
-import { DET_CONFIG, NO_DELAY, collect, until } from './helpers.js';
+import { DET_ALLSECRET_CONFIG, DET_CONFIG, NO_DELAY, collect, until } from './helpers.js';
 
-const makeRoom = () => {
+const makeRoom = (config = DET_CONFIG) => {
   const c = collect();
-  const room = new Room('ROOM01', DET_CONFIG, new DemoScorer(), c.cb, NO_DELAY);
+  const room = new Room('ROOM01', config, new DemoScorer(), c.cb, NO_DELAY);
   return { c, room };
 };
 
@@ -98,7 +98,7 @@ describe('Room reset', () => {
   });
 });
 
-describe('Room フルゲーム（決定的）', () => {
+describe('Room フルゲーム（決定的・allSecret: false）', () => {
   it('2人: 提出→採点→選抜→攻撃→決着まで通り、判定録に理由が入る', async () => {
     const { c, room } = makeRoom();
     await room.join('アリス');
@@ -111,23 +111,23 @@ describe('Room フルゲーム（決定的）', () => {
     expect(r2.ok).toBe(true);
     await until(() => c.last()?.phase === 'picking');
 
-    // DemoScorer: 無関係語 × テーマ = 75 → total 150 <= 200 で全候補 pickable
+    // DemoScorer: 無関係語 × テーマ = 25 → total 50 >= 50 で全候補 pickable
     expect(c.priv.get(1)?.candidates.every((x) => x.pickable)).toBe(true);
     expect(c.priv.get(1)?.candidates[0]?.reasons[0]).toBe('簡易採点');
 
-    await room.pickLives(1, [0], 0); // アリスの SECRET = 灯台
-    await room.pickLives(2, [1], 1); // ボブの SECRET = 風見鶏
+    await room.pickLives(1, [0], [0]); // アリスの SECRET = 灯台
+    await room.pickLives(2, [1], [1]); // ボブの SECRET = 風見鶏
     await until(() => c.last()?.phase === 'battle');
 
-    const a1 = await room.attack(1, '風見鶏'); // ボブの SECRET と完全一致 → score 15 → 帯内で破壊
+    const a1 = await room.attack(1, '風見鶏'); // ボブの SECRET と完全一致 → score 85 → destroyThreshold 超で破壊
     expect(a1.ok).toBe(true);
-    const a2 = await room.attack(2, '油彩'); // 全ペア無関係 → 75 → 帯外
+    const a2 = await room.attack(2, '油彩'); // 全ペア無関係 → 25 → 安全
     expect(a2.ok).toBe(true);
     await until(() => c.last()?.phase === 'finished');
 
     const last = c.last();
     expect(last?.winnerSeat).toBe(1);
-    expect(last?.players[1]?.secretRevealed).toBe('風見鶏');
+    expect(last?.players[1]?.revealedSecrets).toEqual(['風見鶏']);
     expect(last?.turns).toHaveLength(1);
     expect(last?.turns[0]?.details.every((d) => d.reason === '簡易採点')).toBe(true);
   });
@@ -153,8 +153,8 @@ describe('Room フルゲーム（決定的）', () => {
     await room.submitConcepts(1, ['灯台', '羊皮紙', '簿記']);
     await room.submitConcepts(2, ['水平線', '風見鶏', '塩田']);
     await until(() => c.last()?.phase === 'picking');
-    await room.pickLives(1, [0], 0);
-    await room.pickLives(2, [0], 0);
+    await room.pickLives(1, [0], [0]);
+    await room.pickLives(2, [0], [0]);
     await until(() => c.last()?.phase === 'battle');
     await room.attack(1, '水平線');
     await room.attack(2, '油彩'); // readyToResolve → 解決フロー起動
@@ -162,5 +162,37 @@ describe('Room フルゲーム（決定的）', () => {
     await until(() => c.last()?.phase === 'submitting'); // 即再戦
     // 破棄された解決結果が state を汚していない（turns は空のまま新ゲーム）
     expect(room.state.turns).toEqual([]);
+  });
+});
+
+describe('Room フルゲーム（決定的・allSecret: true）', () => {
+  it('2人: 選んだライフ全部が SECRET になり、完全一致攻撃で片方だけ破壊・公開される', async () => {
+    const { c, room } = makeRoom(DET_ALLSECRET_CONFIG);
+    await room.join('アリス');
+    await room.join('ボブ');
+    await until(() => c.last()?.phase === 'submitting');
+
+    await room.submitConcepts(1, ['灯台', '羊皮紙', '簿記']);
+    await room.submitConcepts(2, ['水平線', '風見鶏', '塩田']);
+    await until(() => c.last()?.phase === 'picking');
+
+    // allSecret: 選抜した全部（灯台・羊皮紙）を secretIndexes に指定する
+    await room.pickLives(1, [0, 1], [0, 1]);
+    await room.pickLives(2, [0, 1], [0, 1]);
+    await until(() => c.last()?.phase === 'battle');
+
+    expect(c.last()?.players.every((p) => p.livesPublic.length === 0)).toBe(true);
+    expect(c.last()?.players.every((p) => p.secretCount === 2)).toBe(true);
+
+    const a1 = await room.attack(1, '水平線'); // アリスの SECRET と完全一致 → score 85 → 破壊
+    expect(a1.ok).toBe(true);
+    const a2 = await room.attack(2, '油彩'); // 全ペア無関係 → 25 → 安全
+    expect(a2.ok).toBe(true);
+    await until(() => (c.last()?.turns.length ?? 0) === 1);
+
+    const after = c.last();
+    expect(after?.players[1]?.revealedSecrets).toEqual(['水平線']);
+    expect(after?.players[1]?.secretCount).toBe(1); // 風見鶏 は未破壊のまま残存
+    expect(after?.players[1]?.lifeCount).toBe(1);
   });
 });

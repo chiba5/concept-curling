@@ -33,12 +33,16 @@ export function PlayerStrip({
             {p.livesPublic.map((c) => (
               <span key={c}>{c} </span>
             ))}
-            {p.hasSecret ? <span className="secret-mark">秘</span> : null}
+            {Array.from({ length: p.secretCount }, (_, i) => (
+              <span key={i} className="secret-mark">
+                秘
+              </span>
+            ))}
             {!p.alive ? <span>脱落</span> : null}
           </div>
           <div className="chips">
             {p.controller === 'cpu' ? <span>CPU</span> : null}
-            {p.secretRevealed ? <span>公開: {p.secretRevealed}</span> : null}
+            {p.revealedSecrets.length ? <span>公開: {p.revealedSecrets.join('、')}</span> : null}
             {p.graceDeadline !== null ? <GraceCountdown deadline={p.graceDeadline} /> : null}
           </div>
         </div>

@@ -56,17 +56,17 @@ describe('applyScores', () => {
       scores: [60, 60],
       reasons: ['理由A', '理由B'],
       total: 120,
-      pickable: true, // 120 <= 150
+      pickable: true, // 120 >= 50 (既定 pickMinTotal)
     });
   });
-  it('total が pickSumLimit 超なら pickable=false', () => {
+  it('total が pickMinTotal 未満なら pickable=false', () => {
     let s = unwrap(submitConcepts(inSubmitting(), 1, FIVE));
-    s = unwrap(applyScores(s, 1, table5(80))); // total 160 > 150
+    s = unwrap(applyScores(s, 1, table5(20))); // total 40 < 50
     expect(s.seats[0]?.candidates?.every((c) => !c.pickable)).toBe(true);
   });
   it('pickable が 0 件の席は即敗北（alive=false）', () => {
     let s = unwrap(submitConcepts(inSubmitting(), 1, FIVE));
-    s = unwrap(applyScores(s, 1, table5(80)));
+    s = unwrap(applyScores(s, 1, table5(20)));
     expect(s.seats[0]?.alive).toBe(false);
   });
   it('全席の採点が済むと picking へ遷移する', () => {
@@ -86,7 +86,7 @@ describe('applyScores', () => {
   it('即敗北の結果生存 1 名以下なら finished + 勝者確定', () => {
     let s = inSubmitting(cfg({ playerCount: 2 }));
     s = unwrap(submitConcepts(s, 1, FIVE));
-    s = unwrap(applyScores(s, 1, table5(80))); // P1 即敗北
+    s = unwrap(applyScores(s, 1, table5(20))); // P1 即敗北（total 40 < 50）
     s = unwrap(
       submitConcepts(
         s,

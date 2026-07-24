@@ -36,7 +36,7 @@ describe('applyThemes', () => {
     if (!r.ok) expect(r.error.code).toBe('theme_count');
   });
   it('themes.count=3 の config なら 3 個で受理する', () => {
-    const s = seated(cfg({ themes: { count: 3, mode: 'llm' }, pickSumLimit: 225 }));
+    const s = seated(cfg({ themes: { count: 3, mode: 'llm' } }));
     const s1 = unwrap(applyThemes(unwrap(startTheming(s)), ['星座', '航海', '茶道']));
     expect(s1.themes).toHaveLength(3);
   });

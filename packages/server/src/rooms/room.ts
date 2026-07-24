@@ -218,11 +218,11 @@ export class Room {
   pickLives(
     seat: number,
     selectedIndices: number[],
-    secretIndex: number,
+    secretIndexes: number[],
   ): Promise<engine.Result<undefined>> {
     return this.run(() => {
       this.touch();
-      const r = engine.pickLives(this.state, seat, selectedIndices, secretIndex);
+      const r = engine.pickLives(this.state, seat, selectedIndices, secretIndexes);
       if (!r.ok) return r as engine.Result<undefined>;
       this.state = r.value;
       this.broadcast();
@@ -409,21 +409,30 @@ export class Room {
     if (!st || st.controller !== 'cpu' || !st.alive) return;
     const phase = this.state.phase;
     if (phase === 'submitting' && st.submittedConcepts === null) {
+      const avoid = [
+        ...this.state.seats.flatMap((s) => s.submittedConcepts ?? []),
+        ...this.state.themes,
+      ];
       const concepts = await this.scorer.generateConcepts(
         [...this.state.themes],
         this.state.config.conceptsPerPlayer,
+        avoid,
       );
       await this.submitConcepts(seat, concepts);
     } else if (phase === 'picking' && st.lives === null) {
-      const pick = decidePick(st.candidates ?? [], this.state.config.maxLives);
-      if (pick) await this.pickLives(seat, pick.selectedIndices, pick.secretIndex);
+      const pick = decidePick(
+        st.candidates ?? [],
+        this.state.config.maxLives,
+        this.state.config.allSecret,
+      );
+      if (pick) await this.pickLives(seat, pick.selectedIndices, pick.secretIndexes);
     } else if (phase === 'battle' && st.attack === null) {
       const targets = this.state.seats
         .filter((s) => s.alive && s.seat !== seat)
-        .flatMap((s) => s.lives?.normals ?? []);
+        .flatMap((s) => s.lives?.open ?? []);
       const attack = await this.scorer.generateAttack(
         [...this.state.themes],
-        targets.length ? targets : ['灯台'],
+        targets.length ? targets : [...this.state.themes],
       );
       await this.attack(seat, attack);
     }

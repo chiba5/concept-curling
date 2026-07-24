@@ -26,6 +26,8 @@ export interface AttackPair {
   targetSeat: number;
   targetKind: 'normal' | 'secret';
   targetConcept: string;
+  /** その所有者のライフ列内での安定序数（open は 0.., secrets は open.length + 元の配列位置） */
+  targetOrdinal: number;
 }
 
 /** 攻撃 × 全生存者の全ライフ（自席を含む）の正準順序ペア列 */
@@ -35,7 +37,7 @@ export function attackPairs(state: GameState): AttackPair[] {
   for (const atk of attackers) {
     for (const owner of aliveSeats(state)) {
       if (!owner.lives) continue;
-      for (const concept of owner.lives.normals) {
+      owner.lives.open.forEach((concept, idx) => {
         pairs.push({
           a: atk.attack ?? '',
           b: concept,
@@ -43,10 +45,11 @@ export function attackPairs(state: GameState): AttackPair[] {
           targetSeat: owner.seat,
           targetKind: 'normal',
           targetConcept: concept,
+          targetOrdinal: idx,
         });
-      }
-      const secret = owner.lives.secret;
-      if (secret && !secret.destroyed) {
+      });
+      owner.lives.secrets.forEach((secret, idx) => {
+        if (secret.destroyed) return;
         pairs.push({
           a: atk.attack ?? '',
           b: secret.concept,
@@ -54,8 +57,9 @@ export function attackPairs(state: GameState): AttackPair[] {
           targetSeat: owner.seat,
           targetKind: 'secret',
           targetConcept: secret.concept,
+          targetOrdinal: (owner.lives?.open.length ?? 0) + idx,
         });
-      }
+      });
     }
   }
   return pairs;

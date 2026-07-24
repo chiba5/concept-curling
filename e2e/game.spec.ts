@@ -70,17 +70,18 @@ test('2 人対戦: 2 ブラウザで決着まで完走する（全 SECRET 公開
     await page.getByText('提出', { exact: true }).click();
   }
 
-  // 両者選抜（最初の候補 1 つを SECRET に）
-  // DemoScorer は無関係語 × テーマを [15..75] にリマップするため、無関係な概念は
-  // 2 テーマ合計が最大でも 150（既定 pickSumLimit）に収まり、必ず pickable になる
+  // 両者選抜（既定 config は allSecret: true なので、選んだ候補はすべて SECRET になる。
+  // チェック 1 個 → 確定のみで良く、秘のラジオ操作は不要）
+  // DemoScorer は関連度を [25..85] にリマップするため、無関係語 25×2 テーマ = 50 >= 既定
+  // pickMinTotal(50) に収まり、必ず pickable になる
   for (const page of [a, b]) {
     await expect(page.getByText('この構成で確定')).toBeVisible({ timeout: 15_000 });
     await page.getByRole('checkbox').first().check();
-    await page.getByRole('radio').first().check();
     await page.getByText('この構成で確定').click();
   }
 
-  // バトル: B のライフ（SECRET = 風見鶏、conceptsB[0]）を A が完全一致攻撃 → demo 採点 15 → 破壊帯 [10,50) → 破壊
+  // バトル: B のライフ（SECRET = 風見鶏、conceptsB[0]）を A が完全一致攻撃
+  // → demo 採点は完全一致で 85 > 既定 destroyThreshold(50) → 破壊
   // A 自身の SECRET は 灯台（conceptsA[0]）。互いの攻撃語は相手にも自分にも「完全一致」しない無関係語を選び、
   // 自席を含む attackPairs（フレンドリーファイア仕様）でも誤って自分のライフを破壊しないようにする
   // 人間 2 人のみの部屋なので、B の唯一のライフが破壊された時点で B は脱落し、A のみが生存 → 即 finished

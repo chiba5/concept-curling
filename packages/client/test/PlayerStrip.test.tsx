@@ -12,8 +12,8 @@ const player = (over: Partial<PublicPlayer>): PublicPlayer => ({
   ready: false,
   lifeCount: 3,
   livesPublic: ['灯台', '季節風'],
-  secretRevealed: null,
-  hasSecret: true,
+  revealedSecrets: [],
+  secretCount: 1,
   graceDeadline: null,
   ...over,
 });
@@ -30,12 +30,22 @@ describe('PlayerStrip', () => {
     expect(screen.getAllByText('秘')).toHaveLength(2);
     expect(screen.getByText('済')).toBeTruthy();
   });
+  it('複数の SECRET マークと公開済み SECRET を表示する', () => {
+    render(
+      <PlayerStrip
+        players={[player({ secretCount: 3, revealedSecrets: ['灯台', '季節風'] })]}
+        mySeat={1}
+      />,
+    );
+    expect(screen.getAllByText('秘')).toHaveLength(3);
+    expect(screen.getByText('公開: 灯台、季節風')).toBeTruthy();
+  });
   it('脱落・CPU 代打・grace カウントダウンを表示する', () => {
     vi.setSystemTime(1_000_000);
     render(
       <PlayerStrip
         players={[
-          player({ alive: false, lifeCount: 0, livesPublic: [], hasSecret: false }),
+          player({ alive: false, lifeCount: 0, livesPublic: [], secretCount: 0 }),
           player({ seat: 2, name: 'ボブ', controller: 'cpu' }),
           player({
             seat: 3,

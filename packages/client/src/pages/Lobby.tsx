@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CONFIG_LIMITS, DEFAULT_CONFIG, suggestedPickSumLimit } from '@concept-curling/shared';
+import { CONFIG_LIMITS, DEFAULT_CONFIG, suggestedPickMinTotal } from '@concept-curling/shared';
 import { api, session } from '../api.js';
 import { Frame } from '../components/Frame.js';
 
@@ -15,7 +15,9 @@ export function Lobby() {
   const [conceptsPerPlayer, setConceptsPerPlayer] = useState(DEFAULT_CONFIG.conceptsPerPlayer);
   const [maxLives, setMaxLives] = useState(DEFAULT_CONFIG.maxLives);
   const [themeCount, setThemeCount] = useState(DEFAULT_CONFIG.themes.count);
-  const [pickSumLimit, setPickSumLimit] = useState(DEFAULT_CONFIG.pickSumLimit);
+  const [pickMinTotal, setPickMinTotal] = useState(DEFAULT_CONFIG.pickMinTotal);
+  const [destroyThreshold, setDestroyThreshold] = useState(DEFAULT_CONFIG.destroyThreshold);
+  const [allSecret, setAllSecret] = useState(DEFAULT_CONFIG.allSecret);
   const [showConfig, setShowConfig] = useState(false);
 
   const requireName = (): string | null => {
@@ -65,7 +67,9 @@ export function Lobby() {
         playerCount,
         conceptsPerPlayer,
         maxLives: Math.min(maxLives, conceptsPerPlayer - 1),
-        pickSumLimit,
+        pickMinTotal,
+        destroyThreshold,
+        allSecret,
         themes: { count: themeCount, mode: 'llm' },
       },
     });
@@ -172,20 +176,38 @@ export function Lobby() {
                   onChange={(e) => {
                     const c = num(e.target.value);
                     setThemeCount(c);
-                    setPickSumLimit(suggestedPickSumLimit(c));
+                    setPickMinTotal(suggestedPickMinTotal(c));
                   }}
                 />
               </label>
               <label className="label">
-                選抜上限（合計） {pickSumLimit}
+                選抜下限（合計） {pickMinTotal}
                 <input
                   type="range"
                   min={0}
                   max={themeCount * 100}
                   step={5}
-                  value={pickSumLimit}
-                  onChange={(e) => setPickSumLimit(num(e.target.value))}
+                  value={pickMinTotal}
+                  onChange={(e) => setPickMinTotal(num(e.target.value))}
                 />
+              </label>
+              <label className="label">
+                破壊閾値（関連度がこれを超えたら破壊） {destroyThreshold}
+                <input
+                  type="range"
+                  min={30}
+                  max={90}
+                  value={destroyThreshold}
+                  onChange={(e) => setDestroyThreshold(num(e.target.value))}
+                />
+              </label>
+              <label className="label">
+                <input
+                  type="checkbox"
+                  checked={allSecret}
+                  onChange={(e) => setAllSecret(e.target.checked)}
+                />{' '}
+                全ライフを SECRET にする
               </label>
               <button className="btn btn-primary" onClick={() => void create()} disabled={busy}>
                 この設定で作成
@@ -224,13 +246,12 @@ export function Lobby() {
             2 つのテーマが出ます。各自、テーマと「深すぎず浅すぎない」概念を 5 つ非公開で出します
           </li>
           <li>
-            AI が各概念とテーマの無関係度を 0〜100
-            で採点（0=深い関連、100=無関係）。合計が上限以下の概念だけをライフにできます（最大 3
-            つ、うち 1 つは相手に見えない SECRET）
+            AI が各概念とテーマの関連度を 0〜100 で採点（0=無関係、100=完全一致）。合計が下限以上の
+            概念だけをライフにできます（最大 3 つ、既定では全部が相手に見えない SECRET）
           </li>
           <li>
-            全員同時に攻撃概念を 1 つ出します。攻撃と相手ライフの採点が 10 以上 50
-            未満なら、そのライフは破壊されます（近すぎても遠すぎても壊れません）
+            全員同時に攻撃概念を 1 つ出します。攻撃と相手ライフの関連度が 50
+            を超えたら破壊。遠すぎる攻撃は届きません
           </li>
           <li>ライフが尽きたら脱落。最後まで残った人の勝ちです</li>
         </ol>

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { OpenAIScorer } from '../../src/scoring/openai.js';
 import { ResilientScorer, createScorerFromEnv } from '../../src/scoring/index.js';
-import { DemoScorer } from '../../src/scoring/demo.js';
+import { CONCEPT_POOL, DemoScorer } from '../../src/scoring/demo.js';
 
 /** OpenAI chat.completions 形式のモック応答を作る */
 function openaiResponse(content: unknown): Response {
@@ -121,7 +121,7 @@ describe('ResilientScorer', () => {
       { provider: 'openai', model: 'gpt-4o-mini' },
     );
     const r = await s.scorePairs([{ a: '灯台', b: '灯台' }]);
-    expect(r).toEqual([{ score: 15, reason: '簡易採点' }]);
+    expect(r).toEqual([{ score: 85, reason: '簡易採点' }]);
   });
   it('primary の欠損インデックスは demo で穴埋めされる', async () => {
     const fetchFn = vi
@@ -137,7 +137,7 @@ describe('ResilientScorer', () => {
       { a: '灯台', b: '灯台' },
     ]);
     expect(r[0]).toEqual({ score: 40, reason: 'r' });
-    expect(r[1]).toEqual({ score: 15, reason: '簡易採点' });
+    expect(r[1]).toEqual({ score: 85, reason: '簡易採点' });
   });
   it('generateConcepts は個数・重複・空文字を保証する（primary が壊れた配列を返しても）', async () => {
     const fetchFn = vi
@@ -148,15 +148,35 @@ describe('ResilientScorer', () => {
       new DemoScorer(),
       { provider: 'openai', model: 'gpt-4o-mini' },
     );
-    const c = await s.generateConcepts(['星座'], 5);
+    const c = await s.generateConcepts(['星座'], 5, []);
     expect(c).toHaveLength(5);
     expect(new Set(c).size).toBe(5);
     expect(c.every((x) => x.trim().length > 0)).toBe(true);
   });
+  it('generateConcepts は avoid に含まれる概念を primary/demo どちらの結果からも除外する', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(openaiResponse({ concepts: ['灯台', '羊皮紙'] }));
+    const s = new ResilientScorer(
+      new OpenAIScorer(opts(fetchFn as typeof fetch)),
+      new DemoScorer(),
+      { provider: 'openai', model: 'gpt-4o-mini' },
+    );
+    const c = await s.generateConcepts(['星座'], 3, ['灯台']);
+    expect(c).not.toContain('灯台');
+    expect(c).toHaveLength(3);
+    expect(new Set(c).size).toBe(3);
+  });
+  it('generateConcepts は avoid で demo プールが枯渇しても n 個返す（重複回避を緩和）', async () => {
+    // CPU 多数 × 概念数大で他プレイヤーの概念が demo プール全体を覆うケース。
+    // n 個未満を返すとエンジンが提出を拒否してゲームが submitting で停止するため、n 個保証が必須
+    const s = new ResilientScorer(null, new DemoScorer(), { provider: 'demo', model: 'demo' });
+    const c = await s.generateConcepts(['星座'], 5, [...CONCEPT_POOL]);
+    expect(c).toHaveLength(5);
+    expect(new Set(c).size).toBe(5);
+  });
   it('primary 無し（demo 単独）でも全メソッドが動く', async () => {
     const s = new ResilientScorer(null, new DemoScorer(), { provider: 'demo', model: 'demo' });
     await expect(s.scorePairs([{ a: 'x', b: 'x' }])).resolves.toEqual([
-      { score: 15, reason: '簡易採点' },
+      { score: 85, reason: '簡易採点' },
     ]);
     await expect(s.generateThemes(2)).resolves.toHaveLength(2);
     await expect(s.generateAttack(['星座'], ['灯台'])).resolves.toBeTruthy();

@@ -28,13 +28,13 @@ describe('submitAttack', () => {
   });
 });
 
-describe('attackPairs', () => {
-  it('正準順序: 攻撃者昇順 → 対象所有者昇順 → normals 配列順 → SECRET', () => {
+describe('attackPairs（allSecret: false、1-secret + open）', () => {
+  it('正準順序: 攻撃者昇順 → 対象所有者昇順 → open 配列順 → SECRET、targetOrdinal も付与', () => {
     let s = inBattle(cfg({ playerCount: 2 }));
     s = unwrap(submitAttack(s, 1, '嵐')).state;
     s = unwrap(submitAttack(s, 2, '雷')).state;
     const pairs = attackPairs(s);
-    // 各席のライフ: normals [概念X-1, 概念X-2] + SECRET 概念X-0 → 3 ライフ × 2 所有者 × 2 攻撃者 = 12 ペア
+    // 各席のライフ: open [概念X-1, 概念X-2] + SECRET 概念X-0 → 3 ライフ × 2 所有者 × 2 攻撃者 = 12 ペア
     expect(pairs).toHaveLength(12);
     expect(pairs[0]).toEqual({
       a: '嵐',
@@ -43,6 +43,16 @@ describe('attackPairs', () => {
       targetSeat: 1,
       targetKind: 'normal',
       targetConcept: '概念1-1',
+      targetOrdinal: 0,
+    });
+    expect(pairs[1]).toEqual({
+      a: '嵐',
+      b: '概念1-2',
+      atkSeat: 1,
+      targetSeat: 1,
+      targetKind: 'normal',
+      targetConcept: '概念1-2',
+      targetOrdinal: 1,
     });
     expect(pairs[2]).toEqual({
       a: '嵐',
@@ -51,6 +61,7 @@ describe('attackPairs', () => {
       targetSeat: 1,
       targetKind: 'secret',
       targetConcept: '概念1-0',
+      targetOrdinal: 2, // open.length(2) + 0
     });
     expect(pairs[6]?.atkSeat).toBe(2);
   });
@@ -59,10 +70,10 @@ describe('attackPairs', () => {
     s = unwrap(submitAttack(s, 1, '嵐')).state;
     s = unwrap(submitAttack(s, 2, '雷')).state;
     const mut = structuredClone(s);
-    const secret1 = mut.seats[0]?.lives?.secret;
+    const secret1 = mut.seats[0]?.lives?.secrets[0];
     if (secret1) secret1.destroyed = true;
     const pairs = attackPairs(mut);
-    expect(pairs.filter((p) => p.targetSeat === 1)).toHaveLength(4); // normals 2 × 攻撃者 2
+    expect(pairs.filter((p) => p.targetSeat === 1)).toHaveLength(4); // open 2 × 攻撃者 2
   });
   it('脱落席は攻撃者からも対象からも除外される', () => {
     let s = inBattle(cfg({ playerCount: 2 }));
@@ -74,5 +85,24 @@ describe('attackPairs', () => {
     const pairs = attackPairs(mut);
     expect(pairs.length).toBeGreaterThan(0);
     expect(pairs.every((p) => p.targetSeat !== 2 && p.atkSeat !== 2)).toBe(true);
+  });
+});
+
+describe('attackPairs（allSecret: true、複数 SECRET）', () => {
+  it('secrets 配列順に targetOrdinal が付与され、破壊済みをスキップしても後続の序数はずれない', () => {
+    let s = inBattle(cfg({ playerCount: 2, allSecret: true }));
+    s = unwrap(submitAttack(s, 1, '嵐')).state;
+    s = unwrap(submitAttack(s, 2, '雷')).state;
+    const mut = structuredClone(s);
+    const secrets1 = mut.seats[0]?.lives?.secrets;
+    // 先頭の secret（ordinal 0）を破壊済みにする
+    if (secrets1?.[0]) secrets1[0].destroyed = true;
+    const pairs = attackPairs(mut);
+    const targetingSeat1 = pairs.filter((p) => p.targetSeat === 1);
+    // open が無い（全 SECRET）ので、破壊済み 1 個を除く残り 2 個 × 攻撃者 2 = 4
+    expect(targetingSeat1).toHaveLength(4);
+    expect(targetingSeat1.every((p) => p.targetKind === 'secret')).toBe(true);
+    // 破壊済み secret（元 ordinal 0）はペアに出てこず、残りは 1, 2 のまま
+    expect(new Set(targetingSeat1.map((p) => p.targetOrdinal))).toEqual(new Set([1, 2]));
   });
 });
