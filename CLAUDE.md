@@ -33,11 +33,12 @@ packages/client/     React 19 + Vite SPA（react-router、useReducer + Context�
 
 ルールの正典は `docs/superpowers/specs/2026-07-23-v2-rewrite-design.md` §3。要点のみここに書く：
 
-- プレイヤー数・提出概念数・最大ライフ・破壊帯・テーマ数などは `GameConfig` としてルーム作成時にパラメータ化されている（2〜6 人、既定 3 人）
-- スコアの向き: **0 = 極めて深い関連 / 100 = 極めて浅い（無関係）**。混同しやすいので注意
+- プレイヤー数・提出概念数・最大ライフ・破壊閾値・選抜下限・テーマ数などは `GameConfig` としてルーム作成時にパラメータ化されている（2〜6 人、既定 3 人）
+- スコアの向き（v2.1 で反転）: **0 = 無関係 / 100 = 完全一致**。実装・UI 文言とも旧 v2（0=深い関連/100=浅い）とは逆なので混同注意
 - フェーズ: `waiting → theming → submitting → picking → battle → finished`
-- 既定値: 提出概念数 5 / 最大ライフ 3 / テーマ数 2 / 選抜上限（合計）150 / 破壊帯 `[10, 50)`
-- SECRET（非公開ライフ）は破壊時に公開、`finished` で全 SECRET を公開
+- 既定値: 提出概念数 5 / 最大ライフ 3 / テーマ数 2 / 選抜下限（合計）`pickMinTotal` 50 / 破壊閾値 `destroyThreshold` 50
+- 破壊判定: 攻撃とライフの関連度が `destroyThreshold` を **超えたら**（score > destroyThreshold）破壊。選抜判定: 全テーマとの関連度合計が `pickMinTotal` **以上**（total >= pickMinTotal）ならライフにできる
+- SECRET（非公開ライフ）は既定で全ライフが SECRET（`allSecret: true`）。破壊時に公開、`finished` で全 SECRET を公開
 - 切断は 60 秒の猶予後に CPU が可逆的に代打する。ソロ試遊は「ソロで試す」1 クリックで CPU 2 体と即対戦
 
 詳細な設計判断（バグの設計段階での解消、ルーム・再接続・CPU の仕様等）は同スペックの該当節を参照する。
@@ -59,7 +60,7 @@ npm run e2e     # Playwright（ソロ導線・複数人対戦の完走を実ブ�
 
 - **express は 4 系固定**（`app.get('*')` と `@types/express` が express 5 で壊れる）。安易な npm update 禁止
 - root `package.json` の `overrides.vite: ^6` は vitest 3 が vite 7 を取り得るための固定。vitest 4 移行時に外す
-- スコアの向きは **0 = 深い関連 / 100 = 浅い（無関係）**。実装・UI 文言両方でこの向きを守る
+- スコアの向きは **0 = 無関係 / 100 = 完全一致**（v2.1 で反転済み）。実装・UI 文言両方でこの向きを守る
 - `.env` は Read も Edit もしない（グローバル CLAUDE.md の方針）
 
 ---

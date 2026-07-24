@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import type { TurnRecord } from '@concept-curling/shared';
 import { api, session } from '../api.js';
 import { Frame } from '../components/Frame.js';
 import { PlayerStrip } from '../components/PlayerStrip.js';
@@ -8,6 +9,7 @@ import { PickPanel } from '../components/PickPanel.js';
 import { BattlePanel } from '../components/BattlePanel.js';
 import { TurnLog } from '../components/TurnLog.js';
 import { FinishedPanel } from '../components/FinishedPanel.js';
+import { ResolutionReveal } from '../components/ResolutionReveal.js';
 import { useGame } from '../store.js';
 
 type JoinState = 'connecting' | 'joined' | 'need-name' | 'error';
@@ -20,6 +22,8 @@ export function RoomPage() {
   const [error, setError] = useState('');
   const [nameInput, setNameInput] = useState(session.getName());
   const joinedRoomRef = useRef<string | null>(null);
+  const [revealTurn, setRevealTurn] = useState<TurnRecord | null>(null);
+  const seenTurnsRef = useRef<number | null>(null);
 
   const join = async (name: string): Promise<void> => {
     const token = session.getToken(roomId) ?? undefined;
@@ -67,6 +71,25 @@ export function RoomPage() {
     }
     // 依存は connected と joinState のみ（join・session はレンダー間で安定した参照として扱う）
   }, [connected, joinState]);
+
+  // ターン解決の逐次演出: turns が増えたら最新ターンを演出する（初回受信・再接続復元では出さない）
+  useEffect(() => {
+    if (!pub) return;
+    if (seenTurnsRef.current === null) {
+      seenTurnsRef.current = pub.turns.length;
+      return;
+    }
+    if (pub.turns.length > seenTurnsRef.current) {
+      seenTurnsRef.current = pub.turns.length;
+      const reduceMotion =
+        typeof window !== 'undefined' &&
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      if (!reduceMotion) {
+        setRevealTurn(pub.turns[pub.turns.length - 1] ?? null);
+      }
+    }
+    // 依存は pub.turns.length のみ（seenTurnsRef はレンダー間で安定した参照として扱う）
+  }, [pub?.turns.length]);
 
   const leave = async (): Promise<void> => {
     await api.leaveRoom();
@@ -191,8 +214,16 @@ export function RoomPage() {
       {pub.turns.length ? (
         <div className="section">
           <span className="label">判定録</span>
-          <TurnLog turns={pub.turns} players={pub.players} />
+          <TurnLog turns={revealTurn ? pub.turns.slice(0, -1) : pub.turns} players={pub.players} />
         </div>
+      ) : null}
+
+      {revealTurn ? (
+        <ResolutionReveal
+          turn={revealTurn}
+          players={pub.players}
+          onDone={() => setRevealTurn(null)}
+        />
       ) : null}
 
       <div className="section">
