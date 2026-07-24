@@ -18,6 +18,43 @@ const SCORE_SYSTEM = `あなたは概念間の関連度を厳密に数値化す�
 const THEME_SYSTEM = `あなたは抽象と具象をバランスよく提示するキュレーター。
 出力は必ずJSONのみ。日本語で、意味の離れた短いテーマを毎回変えて生成する。`;
 
+// テーマの多様性を構造的に担保するジャンル一覧。毎回ここからランダム抽選してプロンプトに指定する
+// （採点は temperature 0.2 の決定性が欲しいが、同じ理由で生成系は同じ語ばかり返すため）
+const THEME_GENRES = [
+  '自然現象',
+  '道具',
+  '感情',
+  '場所',
+  '食',
+  '音楽',
+  '動物',
+  '植物',
+  '天体',
+  '職業',
+  '遊び',
+  '乗り物',
+  '時間・季節',
+  '身体',
+  '色彩',
+  '学問',
+  '神話・伝承',
+  '日常の習慣',
+  '芸術',
+  '光と影',
+];
+
+/** 生成系（テーマ・概念・攻撃）用の温度。採点用の低温設定とは分離する */
+const GENERATION_TEMPERATURE = 1.0;
+
+function sampleGenres(count: number): string[] {
+  const arr = [...THEME_GENRES];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j] as string, arr[i] as string];
+  }
+  return arr.slice(0, Math.min(count, arr.length));
+}
+
 const CONCEPT_SYSTEM = `あなたは連想ゲームの熟練プレイヤー。出力は必ずJSONのみ。
 目的: 各テーマと「深すぎず浅すぎない中距離」の関連（関連度 40〜60 目安）を持つ概念を出す。
 厳守:
@@ -35,8 +72,12 @@ const ATTACK_SYSTEM = `あなたは連想ゲームの攻撃者。出力は必ず
 export class OpenAIScorer {
   constructor(private readonly opts: OpenAIOptions) {}
 
-  private async callJson(system: string, user: string): Promise<unknown> {
-    const { apiKey, model, temperature, timeoutMs = 15000, fetchFn = fetch } = this.opts;
+  private async callJson(
+    system: string,
+    user: string,
+    temperature = this.opts.temperature,
+  ): Promise<unknown> {
+    const { apiKey, model, timeoutMs = 15000, fetchFn = fetch } = this.opts;
     let lastError: unknown;
     for (let attempt = 0; attempt < 2; attempt++) {
       const ctrl = new AbortController();
@@ -93,12 +134,16 @@ ${JSON.stringify(pairs.map((p, i) => ({ i, a: p.a, b: p.b })))}
   }
 
   async generateThemes(count: number): Promise<string[]> {
+    const genres = sampleGenres(count);
     const user = `要件:
 - 日本語テーマを ${count} 個。長さ1〜6文字程度の短い名詞や造語。
+- 各テーマはそれぞれ次のジャンルから 1 つずつ発想する: ${JSON.stringify(genres)}
 - 抽象/具象が混在し、互いに離れすぎず近すぎない中距離感。
-- 一般的な文脈で連想可能なもの。専門的すぎる語は避ける。
+- 一般的な文脈で連想可能なもの。専門的すぎる語は避ける。ジャンル名そのものは使わない。
 出力: {"themes":["テーマ1", ...]}`;
-    const json = (await this.callJson(THEME_SYSTEM, user)) as { themes?: unknown };
+    const json = (await this.callJson(THEME_SYSTEM, user, GENERATION_TEMPERATURE)) as {
+      themes?: unknown;
+    };
     const arr = Array.isArray(json.themes) ? json.themes : [];
     const themes = arr.filter((x): x is string => typeof x === 'string' && x.trim().length > 0);
     if (themes.length !== count || new Set(themes).size !== count)
@@ -111,7 +156,9 @@ ${JSON.stringify(pairs.map((p, i) => ({ i, a: p.a, b: p.b })))}
 禁止語（使用不可）: ${JSON.stringify(avoid)}
 要件: 上記の厳守事項に従い、各テーマと中距離の関連を持つ独立した概念を ${n} 個、重複なしで。
 出力: {"concepts":["概念1", ...]}`;
-    const json = (await this.callJson(CONCEPT_SYSTEM, user)) as { concepts?: unknown };
+    const json = (await this.callJson(CONCEPT_SYSTEM, user, GENERATION_TEMPERATURE)) as {
+      concepts?: unknown;
+    };
     const arr = Array.isArray(json.concepts) ? json.concepts : [];
     return arr.filter((x): x is string => typeof x === 'string');
   }
@@ -121,7 +168,9 @@ ${JSON.stringify(pairs.map((p, i) => ({ i, a: p.a, b: p.b })))}
 対象概念: ${JSON.stringify(targetConcepts)}
 要件: 対象概念のどれかと中程度の関連を持つ攻撃概念を 1 つ（20字以内）。
 出力: {"attack":"概念"}`;
-    const json = (await this.callJson(ATTACK_SYSTEM, user)) as { attack?: unknown };
+    const json = (await this.callJson(ATTACK_SYSTEM, user, GENERATION_TEMPERATURE)) as {
+      attack?: unknown;
+    };
     if (typeof json.attack !== 'string' || !json.attack.trim()) throw new Error('invalid attack');
     return json.attack.trim();
   }

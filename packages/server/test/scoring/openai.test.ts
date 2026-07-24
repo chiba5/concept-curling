@@ -57,6 +57,21 @@ describe('OpenAIScorer', () => {
     );
     await expect(bad.generateThemes(2)).rejects.toThrow();
   });
+  it('生成系は高温・採点は低温の temperature を使い、テーマ依頼にはジャンル指定が入る', async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(openaiResponse({ themes: ['甲', '乙'] }))
+      .mockResolvedValueOnce(openaiResponse({ pairs: [{ i: 0, score: 10, reason: 'r' }] }));
+    const s = new OpenAIScorer(opts(fetchFn as typeof fetch));
+    await s.generateThemes(2);
+    await s.scorePairs([{ a: 'x', b: 'y' }]);
+    const bodies = fetchFn.mock.calls.map((c) =>
+      JSON.parse((c[1] as RequestInit).body as string),
+    ) as { temperature: number; messages: { content: string }[] }[];
+    expect(bodies[0]?.temperature).toBe(1.0);
+    expect(bodies[1]?.temperature).toBe(0.2);
+    expect(bodies[0]?.messages[1]?.content).toContain('ジャンル');
+  });
   it('generateThemes: 重複したテーマ応答は throw する', async () => {
     const dup = new OpenAIScorer(
       opts(vi.fn().mockResolvedValue(openaiResponse({ themes: ['星座', '星座'] })) as typeof fetch),
