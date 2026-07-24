@@ -193,7 +193,7 @@ export function createGameServer(
           return ack({ ok: false, code: 'not_in_room', message: 'ルームに参加していません' });
         const p = pickLivesSchema.safeParse(payload);
         if (!p.success) return ack({ ok: false, code: 'invalid_input', message: '入力が不正です' });
-        const r = await loc.room.pickLives(loc.seat, p.data.selectedIndices, p.data.secretIndex);
+        const r = await loc.room.pickLives(loc.seat, p.data.selectedIndices, p.data.secretIndexes);
         ack(r.ok ? { ok: true } : { ok: false, code: r.error.code, message: r.error.message });
       }, ack);
     });

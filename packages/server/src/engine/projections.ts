@@ -31,12 +31,13 @@ export function toPublicState(state: GameState): PublicState {
       alive: s.alive,
       ready: isReady(state, s),
       lifeCount: lifeCount(s),
-      livesPublic: s.lives ? [...s.lives.normals] : [],
-      secretRevealed:
-        s.lives?.secret && (s.lives.secret.revealed || state.phase === 'finished')
-          ? s.lives.secret.concept
-          : null,
-      hasSecret: !!(s.lives?.secret && !s.lives.secret.destroyed),
+      livesPublic: s.lives ? [...s.lives.open] : [],
+      revealedSecrets: s.lives
+        ? s.lives.secrets
+            .filter((sec) => sec.revealed || state.phase === 'finished')
+            .map((sec) => sec.concept)
+        : [],
+      secretCount: s.lives ? s.lives.secrets.filter((sec) => !sec.destroyed).length : 0,
       graceDeadline: null, // Room が上書きする
     })),
     turns: structuredClone(state.turns),
@@ -54,9 +55,10 @@ export function toPrivateView(state: GameState, seat: number, playerToken: strin
     myConcepts: s?.submittedConcepts ? [...s.submittedConcepts] : null,
     candidates: s?.candidates ? structuredClone(s.candidates) : [],
     myLives: {
-      normals: s?.lives ? [...s.lives.normals] : [],
-      secret: s?.lives?.secret ? s.lives.secret.concept : null,
-      secretDestroyed: !!s?.lives?.secret?.destroyed,
+      open: s?.lives ? [...s.lives.open] : [],
+      secrets: s?.lives
+        ? s.lives.secrets.map((sec) => ({ concept: sec.concept, destroyed: sec.destroyed }))
+        : [],
     },
     attackSubmitted: s?.attack !== null && s?.attack !== undefined,
   };

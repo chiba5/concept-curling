@@ -20,9 +20,17 @@ describe('gameConfigSchema', () => {
       gameConfigSchema.safeParse({ ...DEFAULT_CONFIG, conceptsPerPlayer: 3, maxLives: 3 }).success,
     ).toBe(false);
   });
-  it('destroyBand.min >= max を拒否する', () => {
+  it('destroyThreshold は 0..99 の範囲外を拒否する', () => {
+    expect(gameConfigSchema.safeParse({ ...DEFAULT_CONFIG, destroyThreshold: 100 }).success).toBe(
+      false,
+    );
+    expect(gameConfigSchema.safeParse({ ...DEFAULT_CONFIG, destroyThreshold: -1 }).success).toBe(
+      false,
+    );
+  });
+  it('pickMinTotal がテーマ数 × 100 超を拒否する', () => {
     expect(
-      gameConfigSchema.safeParse({ ...DEFAULT_CONFIG, destroyBand: { min: 50, max: 50 } }).success,
+      gameConfigSchema.safeParse({ ...DEFAULT_CONFIG, pickMinTotal: 201 }).success, // themes.count=2 → 上限200
     ).toBe(false);
   });
   it('manual テーマの個数不一致を拒否する', () => {
@@ -56,23 +64,38 @@ describe('submitConceptsSchema', () => {
 });
 
 describe('pickLivesSchema', () => {
-  it('secretIndex が selectedIndices に含まれない場合を拒否する', () => {
-    expect(pickLivesSchema.safeParse({ selectedIndices: [0, 2], secretIndex: 1 }).success).toBe(
+  it('secretIndexes が selectedIndices に含まれない要素を持つ場合を拒否する', () => {
+    expect(pickLivesSchema.safeParse({ selectedIndices: [0, 2], secretIndexes: [1] }).success).toBe(
       false,
     );
   });
-  it('secretIndex が selectedIndices 内なら受理する', () => {
-    expect(pickLivesSchema.safeParse({ selectedIndices: [0, 2], secretIndex: 2 }).success).toBe(
+  it('secretIndexes が selectedIndices の部分集合なら受理する', () => {
+    expect(pickLivesSchema.safeParse({ selectedIndices: [0, 2], secretIndexes: [2] }).success).toBe(
       true,
     );
+    expect(
+      pickLivesSchema.safeParse({ selectedIndices: [0, 2], secretIndexes: [0, 2] }).success,
+    ).toBe(true);
   });
   it('selectedIndices の重複を拒否する', () => {
-    expect(pickLivesSchema.safeParse({ selectedIndices: [1, 1], secretIndex: 1 }).success).toBe(
+    expect(pickLivesSchema.safeParse({ selectedIndices: [1, 1], secretIndexes: [1] }).success).toBe(
       false,
     );
   });
+  it('secretIndexes の重複を拒否する', () => {
+    expect(
+      pickLivesSchema.safeParse({ selectedIndices: [1, 2], secretIndexes: [1, 1] }).success,
+    ).toBe(false);
+  });
   it('空の selectedIndices を拒否する', () => {
-    expect(pickLivesSchema.safeParse({ selectedIndices: [], secretIndex: 0 }).success).toBe(false);
+    expect(pickLivesSchema.safeParse({ selectedIndices: [], secretIndexes: [0] }).success).toBe(
+      false,
+    );
+  });
+  it('空の secretIndexes を拒否する', () => {
+    expect(pickLivesSchema.safeParse({ selectedIndices: [0], secretIndexes: [] }).success).toBe(
+      false,
+    );
   });
 });
 

@@ -55,10 +55,10 @@ export class DemoScorer implements Scorer {
   scorePairs(pairs: { a: string; b: string }[]): Promise<PairScore[]> {
     return Promise.resolve(
       pairs.map(({ a, b }) => {
-        // 生の bigram Jaccard（0..100）を [15..75] に線形リマップする。
-        // 無関係語 75×2 テーマ = 150 <= 既定 pickSumLimit(150) → キー無しでも選抜可能、
-        // 完全一致 15 は既定破壊帯 [10,50) に入る → 攻撃の決定的テストが可能。
-        const v = 15 + Math.round(demoScore(a, b) * 0.6);
+        // 生の bigram Jaccard 距離（0..100、大きいほど無関係）を反転して関連度に変換し [25..85] にリマップする。
+        // 無関係語 25×2 テーマ = 50 >= 既定 pickMinTotal(50) → キー無しでも選抜可能、
+        // 完全一致 85 は既定 destroyThreshold(50) 超 → 破壊、無関係 25 は destroyThreshold 以下で安全。
+        const v = 85 - Math.round(demoScore(a, b) * 0.6);
         return { score: v, reason: '簡易採点' };
       }),
     );
@@ -66,8 +66,10 @@ export class DemoScorer implements Scorer {
   generateThemes(count: number): Promise<string[]> {
     return Promise.resolve(sample(THEME_POOL, count));
   }
-  generateConcepts(_themes: string[], n: number): Promise<string[]> {
-    return Promise.resolve(sample(CONCEPT_POOL, n));
+  generateConcepts(_themes: string[], n: number, avoid: string[]): Promise<string[]> {
+    const avoidSet = new Set(avoid.map((a) => a.trim()));
+    const pool = CONCEPT_POOL.filter((c) => !avoidSet.has(c));
+    return Promise.resolve(sample(pool, n));
   }
   generateAttack(_themes: string[], targetConcepts: string[]): Promise<string> {
     const base = targetConcepts[Math.floor(Math.random() * targetConcepts.length)] ?? '灯台';

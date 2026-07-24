@@ -1,18 +1,26 @@
 import type { GameConfig, PrivateView, PublicState } from '@concept-curling/shared';
 
 /**
- * 決定的テスト用 config。
- * DemoScorer は [15..75] にリマップ済み: 完全一致 → 15（destroyBand [10,50) 内 → 破壊）、
- * 無関係語 → 75（帯外 → 安全）。無関係語のテーマスコア合計は 75×2=150 <= pickSumLimit 200 で全候補 pickable。
+ * 決定的テスト用 config（従来モード = allSecret false。1-secret 前提のテスト群をそのまま活かす）。
+ * DemoScorer は [25..85] にリマップ済み: 完全一致 → 85（destroyThreshold 50 超 → 破壊）、
+ * 無関係語 → 25（50 以下 → 安全）。無関係語のテーマスコア合計は 25×2=50 >= pickMinTotal 50 で全候補 pickable。
  */
 export const DET_CONFIG: GameConfig = {
   playerCount: 2,
   conceptsPerPlayer: 3,
   maxLives: 1,
-  pickSumLimit: 200,
-  destroyBand: { min: 10, max: 50 },
+  pickMinTotal: 50,
+  destroyThreshold: 50,
+  allSecret: false,
   themes: { count: 2, mode: 'manual', manual: ['星座', '航海'] },
   graceSeconds: 10,
+};
+
+/** 全ライフ SECRET モードの決定的テスト用 config（複数 SECRET を試すため maxLives=2） */
+export const DET_ALLSECRET_CONFIG: GameConfig = {
+  ...DET_CONFIG,
+  allSecret: true,
+  maxLives: 2,
 };
 
 export interface Collected {

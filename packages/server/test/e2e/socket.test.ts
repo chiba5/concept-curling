@@ -71,8 +71,8 @@ const joinRoom = (c: Client, roomId: string, name: string, playerToken?: string)
   );
 const submit = (c: Client, concepts: string[]) =>
   new Promise<Ack>((r) => c.sock.emit('game:submitConcepts', { concepts }, r));
-const pick = (c: Client, selectedIndices: number[], secretIndex: number) =>
-  new Promise<Ack>((r) => c.sock.emit('game:pickLives', { selectedIndices, secretIndex }, r));
+const pick = (c: Client, selectedIndices: number[], secretIndexes: number[]) =>
+  new Promise<Ack>((r) => c.sock.emit('game:pickLives', { selectedIndices, secretIndexes }, r));
 const attack = (c: Client, concept: string) =>
   new Promise<Ack>((r) => c.sock.emit('game:attack', { concept }, r));
 
@@ -92,8 +92,8 @@ describe('socket E2E', () => {
     expect((await submit(b, ['水平線', '風見鶏', '塩田'])).ok).toBe(true);
     await until(() => a.last()?.phase === 'picking');
     await until(() => (a.lastPriv()?.candidates.length ?? 0) === 3);
-    expect((await pick(a, [0], 0)).ok).toBe(true);
-    expect((await pick(b, [1], 1)).ok).toBe(true);
+    expect((await pick(a, [0], [0])).ok).toBe(true);
+    expect((await pick(b, [1], [1])).ok).toBe(true);
     await until(() => a.last()?.phase === 'battle');
     expect((await attack(a, '風見鶏')).ok).toBe(true);
     expect((await attack(b, '油彩')).ok).toBe(true);
@@ -103,7 +103,7 @@ describe('socket E2E', () => {
     const preFinished = b.states.filter((s) => s.phase !== 'finished');
     expect(JSON.stringify(preFinished)).not.toContain('灯台');
     const finished = b.states.find((s) => s.phase === 'finished');
-    expect(finished?.players[0]?.secretRevealed).toBe('灯台');
+    expect(finished?.players[0]?.revealedSecrets).toEqual(['灯台']);
   });
 
   it('切断 → 別ソケット + playerToken で復帰し、myConcepts を受け取る', async () => {

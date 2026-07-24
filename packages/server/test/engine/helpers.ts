@@ -6,8 +6,13 @@ import { applyThemes, startTheming } from '../../src/engine/theming.js';
 import { applyScores, submitConcepts } from '../../src/engine/submitting.js';
 import { pickLives } from '../../src/engine/picking.js';
 
+/**
+ * 既定は allSecret: false（従来の 1-secret + normals 前提のテスト群を活かすため）。
+ * allSecret モード自体は picking.test.ts / battle.test.ts / resolve.test.ts で
+ * cfg({ allSecret: true }) を明示的に指定して検証する。
+ */
 export function cfg(overrides: Partial<GameConfig> = {}): GameConfig {
-  return { ...DEFAULT_CONFIG, ...overrides };
+  return { ...DEFAULT_CONFIG, allSecret: false, ...overrides };
 }
 
 /** playerCount 人をフル着席させた waiting 状態を作る */
@@ -53,11 +58,16 @@ export function allScored(config: GameConfig = cfg(), flatScore = 40): GameState
   return state;
 }
 
-/** battle フェーズまで進めた状態。各席 [0,1,2] を選抜し SECRET はインデックス 0（=概念X-0） */
+/**
+ * battle フェーズまで進めた状態。各席 [0,1,2] を選抜し SECRET はインデックス 0（=概念X-0）。
+ * config.allSecret を渡した場合は選抜した全部が SECRET になる。
+ */
 export function inBattle(config: GameConfig = cfg()): GameState {
   let state = allScored(config);
   for (const st of [...state.seats].filter((s) => s.alive)) {
-    state = unwrap(pickLives(state, st.seat, [0, 1, 2].slice(0, config.maxLives), 0));
+    const selected = [0, 1, 2].slice(0, config.maxLives);
+    const secretIndexes = config.allSecret ? selected : [0];
+    state = unwrap(pickLives(state, st.seat, selected, secretIndexes));
   }
   return state;
 }

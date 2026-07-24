@@ -8,7 +8,7 @@ export interface PairResult {
   reason: string;
 }
 
-// 同一ターゲットに複数の帯内ヒットがある場合、正準順序で先の攻撃者に破壊がクレジットされる（後続はスキップ）
+// 同一ターゲットに複数の破壊ヒットがある場合、正準順序で先の攻撃者に破壊がクレジットされる（後続はスキップ）
 export function resolveTurn(state: GameState, results: PairResult[]): Result {
   if (state.phase !== 'battle') return err('bad_phase', 'ターン解決は battle 中のみ');
   if (!aliveSeats(state).every((s) => s.attack !== null))
@@ -18,7 +18,7 @@ export function resolveTurn(state: GameState, results: PairResult[]): Result {
     return err('result_shape', `結果は ${pairs.length} 件の有限スコアが必要です`);
 
   const next = structuredClone(state);
-  const { min, max } = next.config.destroyBand;
+  const { destroyThreshold } = next.config;
 
   const attacks = aliveSeats(next).map((s) => ({ seat: s.seat, concept: s.attack ?? '' }));
   const details: TurnDetail[] = [];
@@ -31,25 +31,27 @@ export function resolveTurn(state: GameState, results: PairResult[]): Result {
     const reason = res?.reason ?? '';
     const owner = next.seats.find((s) => s.seat === pair.targetSeat);
     const lives = owner?.lives;
+    const secret =
+      pair.targetKind === 'secret'
+        ? lives?.secrets.find((sec) => sec.concept === pair.targetConcept)
+        : undefined;
 
     // ラベルは「この行の処理前」の公開状態で決める（未公開 SECRET は伏せる）
     const label =
-      pair.targetKind === 'secret' && lives?.secret && !lives.secret.revealed
-        ? 'SECRET'
-        : pair.targetConcept;
+      pair.targetKind === 'secret' && secret && !secret.revealed ? 'SECRET' : pair.targetConcept;
 
     let destroyed = false;
-    if (score >= min && score < max && owner && lives) {
+    if (score > destroyThreshold && owner && lives) {
       if (pair.targetKind === 'normal') {
-        const idx = lives.normals.indexOf(pair.targetConcept);
+        const idx = lives.open.indexOf(pair.targetConcept);
         if (idx !== -1) {
-          lives.normals.splice(idx, 1);
+          lives.open.splice(idx, 1);
           destroyed = true;
           destroys.push({ seat: pair.targetSeat, kind: 'normal', concept: pair.targetConcept });
         }
-      } else if (lives.secret && !lives.secret.destroyed) {
-        lives.secret.destroyed = true;
-        lives.secret.revealed = true;
+      } else if (secret && !secret.destroyed) {
+        secret.destroyed = true;
+        secret.revealed = true;
         destroyed = true;
         destroys.push({ seat: pair.targetSeat, kind: 'secret', concept: pair.targetConcept });
         reveals.push({ seat: pair.targetSeat, concept: pair.targetConcept });
@@ -61,6 +63,7 @@ export function resolveTurn(state: GameState, results: PairResult[]): Result {
       atkConcept: pair.a,
       targetSeat: pair.targetSeat,
       targetKind: pair.targetKind,
+      targetOrdinal: pair.targetOrdinal,
       targetLabel: label,
       score,
       reason,

@@ -55,7 +55,7 @@ export function applyScores(state: GameState, seat: number, table: ScoreRow[]): 
       scores,
       reasons: row ? [...row.reasons] : [],
       total,
-      pickable: total <= next.config.pickSumLimit,
+      pickable: total >= next.config.pickMinTotal,
     };
   });
   t.candidates = candidates;

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DemoScorer, demoScore } from '../../src/scoring/demo.js';
 
 describe('demoScore', () => {
-  it('同一文字列は 0（完全一致 = 最深関連）', () => {
+  it('同一文字列は 0（bigram Jaccard 距離。DemoScorer 側で関連度に反転される）', () => {
     expect(demoScore('灯台', '灯台')).toBe(0);
   });
   it('bigram を共有しない語は 100', () => {
@@ -30,14 +30,14 @@ describe('demoScore', () => {
 
 describe('DemoScorer', () => {
   const scorer = new DemoScorer();
-  it('scorePairs は各ペアに score と reason「簡易採点」を返す', async () => {
+  it('scorePairs は各ペアに score と reason「簡易採点」を返す（同一 85 / 無関係 25）', async () => {
     const r = await scorer.scorePairs([
       { a: '灯台', b: '灯台' },
       { a: '灯台', b: '簿記' },
     ]);
     expect(r).toEqual([
-      { score: 15, reason: '簡易採点' },
-      { score: 75, reason: '簡易採点' },
+      { score: 85, reason: '簡易採点' },
+      { score: 25, reason: '簡易採点' },
     ]);
   });
   it('generateThemes は指定個数の重複なし日本語テーマを返す', async () => {
@@ -47,9 +47,15 @@ describe('DemoScorer', () => {
     expect(t.every((x) => typeof x === 'string' && x.length > 0)).toBe(true);
   });
   it('generateConcepts は指定個数の重複なし概念を返す', async () => {
-    const c = await scorer.generateConcepts(['星座', '航海'], 9);
+    const c = await scorer.generateConcepts(['星座', '航海'], 9, []);
     expect(c).toHaveLength(9);
     expect(new Set(c).size).toBe(9);
+  });
+  it('generateConcepts は avoid に含まれる概念を除外する', async () => {
+    const avoid = ['羊皮紙', '炊飯器', '季節風', '簿記', '水平線', '風見鶏', '燭台'];
+    const c = await scorer.generateConcepts(['星座'], 5, avoid);
+    expect(c).toHaveLength(5);
+    expect(c.every((x) => !avoid.includes(x))).toBe(true);
   });
   it('generateAttack は非空文字列を返す', async () => {
     const a = await scorer.generateAttack(['星座'], ['灯台', '簿記']);
