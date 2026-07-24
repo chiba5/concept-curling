@@ -9,7 +9,7 @@ LLM が「概念どうしの無関係度」を採点する、2〜6 人用のオ�
 
 - v2 は PR #1 で main にマージ済み（履歴保存の merge commit 方式）。`npm run check` / `npm run e2e` / CI（check + e2e）全 green
 - Render（既存サービス）は main をデプロイ済み。Build `npm ci && npm run build` / Start `node packages/server/dist/index.js` / Health `/healthz` / env に `SCORING_PROVIDER=openai` + `OPENAI_API_KEY` 設定済み
-- **既知の問題 2 件（2026-07-24 時点）**: ① OpenAI が全リクエスト HTTP 429（アカウントのクレジット切れとみられる）→ 本番は demo フォールバックで採点中。ユーザーが OpenAI 課金を復旧すれば自動で LLM 採点に戻る ② GitHub push の auto-deploy が発火しない（webhook 切れ）→ push 後は Render ダッシュボードから Manual Deploy が必要
+- ~~既知の問題 2 件~~ **両方解決済み（2026-07-24）**: ① OpenAI 429 はクレジット追加で復旧（本番で LLM 採点・実根拠表示を確認済み） ② auto-deploy は Render GitHub App にリポジトリアクセスを付与して復旧（push → Auto-Deploy 発火を実測確認済み）
 - 旧実装（単一 `server.js` の `feat/online-conversion` 版）は役目を終えている。旧ルールはコードとしてもドキュメントとしてももう存在しない。過去の記述を参照しないこと
 
 ---
