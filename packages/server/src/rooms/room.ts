@@ -430,13 +430,16 @@ export class Room {
       const targets = this.state.seats
         .filter((s) => s.alive && s.seat !== seat)
         .flatMap((s) => s.lives?.open ?? []);
-      // 攻撃の繰り返し防止: 過去の全攻撃・同ターンの提出済み攻撃・破壊済み概念・テーマ語を避ける
+      // 攻撃の繰り返し防止: 過去の全攻撃・同ターンの提出済み攻撃・破壊済み概念・テーマ語に加え、
+      // 自席の残ライフ概念も避ける（攻撃は自分のライフにも当たるため、同一語だと確実に自滅する）
       const avoid = [
         ...new Set([
           ...this.state.turns.flatMap((t) => t.attacks.map((a) => a.concept)),
           ...this.state.seats.flatMap((s) => (s.attack !== null ? [s.attack] : [])),
           ...this.state.turns.flatMap((t) => t.destroys.map((d) => d.concept)),
           ...this.state.themes,
+          ...(st.lives?.open ?? []),
+          ...(st.lives?.secrets.filter((x) => !x.destroyed).map((x) => x.concept) ?? []),
         ]),
       ];
       const attack = await this.scorer.generateAttack(
