@@ -21,3 +21,11 @@
 - private 配送は seat でなく playerToken ルーティング（席番号振り直しに安全）
 - 決定的テスト手法: DemoScorer（[15..75] リマップ後）+ destroyBand [10,50) → 「攻撃 == ライフ概念（15）で必中、無関係語（75）で必外し」
 - 既知の割り切り: ホスト（席1）永久離脱時は reset 不能（30 分 GC で回収）/ CPU 代打の TOCTOU（復帰直後に CPU の提出が通る窓）は許容
+
+## 2026-07-23 P4: クライアント UI + E2E + リリース準備
+
+- ワイヤ拡張: finished 時の全 SECRET 公開 / graceDeadline 配信 / Ack に code / room:leave 追加・errorMsg 削除
+- クライアント: typed socket → api（ack 10 秒タイムアウト）→ GameProvider の 3 層。config は PublicState から読み二重定義なし
+- デザイン: 活版スタイルを styles.css 1 枚に集約（流体タイポ clamp / 朱の打ち消し線 = 唯一のアニメーション）
+- E2E: Playwright（demo 採点・決定的）。/playtest スキルを完了宣言前の必須検証に昇格
+- 残課題: main マージ（ユーザー確認後）/ Render デプロイ対象切替 / デモ URL の動作確認

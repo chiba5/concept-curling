@@ -1,106 +1,70 @@
 # concept-curling — CLAUDE.md
 
-> **⚠️ このブランチ（feat/v2-rewrite）は v2 全面作り直し作業中。**
-> 以下の §2〜§5 は削除済みの旧実装の説明であり、現在のコードには存在しない。
-> v2 の正は `docs/superpowers/specs/2026-07-23-v2-rewrite-design.md`。
-> 検証コマンドはルートで `npm run check`（lint + typecheck + test + build）。
-> 開発ノート: root package.json の `overrides.vite ^6` は vitest 3 が vite 7 を取り得るための固定。vitest 4 移行時に外す。
-> express は 4 系固定（`app.get('*')` と @types/express が express 5 で壊れる）。安易な npm update 禁止。
-
-LLM が「概念間の無関係度」を採点する、3人用オンライン対戦ゲーム。
+LLM が「概念どうしの無関係度」を採点する、2〜6 人用のオンライン対戦ゲーム。TypeScript monorepo（npm workspaces）でゼロから書き直した v2 実装が正。
 リポジトリ: `chiba5/concept-curling`（private=false）／ デモ: https://concept-curling.onrender.com （Render Free）
 
 ---
 
-## 1. 最重要：正典ブランチは `feat/online-conversion`
+## 1. 現状：v2 は `feat/v2-rewrite` で完成、main マージは未実施
 
-**`main` は 2025-09 時点の古いソロ版で、デプロイもされていない。**
-`main` の README が説明している「最も孤立した概念を出した人が勝ち」というルールは**現行ゲームではない**。
-
-- 実体・デプロイ対象・作業対象 = `feat/online-conversion`
-- 差分は 8ファイル / +2686 行。socket.io 導入でオンライン同時対戦化されている
-- **README の内容と実装が一致していない**。README を根拠に実装判断をしないこと
-- ブランチ統合（実体を main にする）は未実施の課題
+- v2（本 CLAUDE.md が説明する実装）は `feat/v2-rewrite` ブランチで完成済み。`npm run check` / `npm run e2e` は全 green
+- **main へのマージと Render のデプロイ対象切替は PENDING**。ユーザー確認後に実施する（このブランチを main にする作業自体は着手済みではない）
+- 旧実装（単一 `server.js` の `feat/online-conversion` 版）はこの書き換えで役目を終えている。旧ルール（3人固定・概念5つ非公開提出のスコア正規化 [15..85] 等）はコードとしてもドキュメントとしてももう存在しない。過去の記述を参照しないこと
 
 ---
 
-## 2. 現行ゲームルール（実装準拠、server.js が正）
-
-3人固定。フェーズは `Phase` 定数（server.js:25-34）で管理。
-
-1. `waiting` — 3席が埋まるまで待機
-2. `theme` — LLM が日本語テーマを2つ生成（失敗時は固定プールにフォールバック）
-3. `private5_input` — 各自が概念を**5つ非公開で提出**。各概念×2テーマの無関係度を LLM が 0〜100 で採点し、`normalizeScoresForPick` が [15..85] に線形リマップ
-4. `life_pick` — 5つの中から **2テーマのスコア合計が 150 (`PICK_SUM_LIMIT`) 以下**のものを 1〜3 個選んでライフにする。うち1つを **SECRET**（他プレイヤーに非公開）に指定。条件を満たすものが0個なら即敗北
-5. `battle` — 全員が同時に攻撃概念を1つ提出 → 全「攻撃 × 全プレイヤーの全ライフ」を LLM が採点し、**スコアが `10 <= score < 50` ならそのライフを破壊**。SECRET は破壊と同時に公開
-6. ライフが0になったら脱落。生存1人以下で `finished`
-
-スコアの向き: **0 = 極めて深い関連 / 100 = 極めて浅い（無関係）**。混同しやすいので注意。
-
----
-
-## 3. 構造
+## 2. 構造
 
 ```
-server.js              626行。Express + socket.io + ゲーム状態 + LLM採点をすべて含む単一ファイル
-public/index.html      画面（フェーズごとの表示切替）
-public/script.js       socket イベント送受信 + render()/renderPrivate()
-public/style.css
-concept-online-min/    package.json と lock だけのゴミディレクトリ（削除候補）
+packages/shared/     型・zod スキーマ・定数（クライアント/サーバの単一情報源。閾値の二重管理をしない）
+packages/server/     Express 4 + socket.io。クライアントのビルド成果物（packages/client/dist）を静的配信
+  engine/            純粋関数ステートマシン（applyEvent(state, event) → newState。I/O・socket・LLM 非依存）
+  scoring/           Scorer インターフェース + OpenAI 実装 + Demo フォールバック + LRU キャッシュ
+  rooms/             ルーム管理・再接続（playerToken）・CPU 代打・解決キュー
+packages/client/     React 19 + Vite SPA（react-router、useReducer + Context）
 ```
 
-**サーバ状態はグローバル変数 `let game` 1個のみ**（server.js:37）。ルームの概念がない。
-
-### LLM 採点（server.js:508 `scorePairsLLM`）
-- OpenAI Chat Completions を **fetch で直叩き**（`openai` パッケージは依存から外れている）
-- モデルは `OPENAI_MODEL`（既定 `gpt-4o-mini`）、temperature は `OPENAI_TEMPERATURE`（既定 0.2）
-- **プロンプトはすべてサーバ側で構築**。クライアントからは概念文字列しか渡らない（＝プロンプトインジェクション経路は塞がっている。この設計を壊さないこと）
-- `game.relCache`（"a|b" → score）でキャッシュし、未計算ペアだけをバッチで問い合わせる
-- **API キーが無い / 呼び出しが失敗した場合は `demoScore`（bigram Jaccard）に全フォールバック**。つまり `OPENAI_API_KEY` 無しでも一応最後まで遊べる。この二重化は維持する
+原則：**エンジンは純粋関数**（`engine/` に副作用を持ち込まない）。**サーバが唯一の権威**で、クライアントは意図（文字列・インデックス）のみ送信し、プロンプトはサーバのみが構築する。
 
 ---
 
-## 4. 既知の地雷（触る前に読む）
+## 3. ゲームルール正
 
-1. **ルームがない** — 同時に4人目が来ると「満席」、逆に誰か1人が繋ぎっぱなしだと他の人は永久に遊べない。公開デモとして成立していない
-2. **誰か1人が disconnect すると `game = resetGame()` で全員のゲームが消える**（server.js:382-389）。リロードでも発動。再入場・再接続の手段がない
-3. `resolveTurn()` が async。`submitAttack` 側は await せずに `broadcast()` へ抜けるため、同時提出時に二重解決しうる
-4. **デッドコード**: `scorePairsEmb` / `embeddingsFor` / `cosine`（embedding 採点の実験跡・未使用）、`Phase.P5_SCORED`、`relScore`（`demoScore` の薄いラッパー）
-5. `io` の CORS が `origin: "*"`
-6. 破壊判定の `10 <= score < 50` はマジックナンバー。「同義すぎる（<10）と破壊されない」がゲームとして正しいかは未検証
-7. Render Free はコールドスタート実測 **22秒**。人に見せる場面では事前にウォームアップが要る
+ルールの正典は `docs/superpowers/specs/2026-07-23-v2-rewrite-design.md` §3。要点のみここに書く：
+
+- プレイヤー数・提出概念数・最大ライフ・破壊帯・テーマ数などは `GameConfig` としてルーム作成時にパラメータ化されている（2〜6 人、既定 3 人）
+- スコアの向き: **0 = 極めて深い関連 / 100 = 極めて浅い（無関係）**。混同しやすいので注意
+- フェーズ: `waiting → theming → submitting → picking → battle → finished`
+- 既定値: 提出概念数 5 / 最大ライフ 3 / テーマ数 2 / 選抜上限（合計）150 / 破壊帯 `[10, 50)`
+- SECRET（非公開ライフ）は破壊時に公開、`finished` で全 SECRET を公開
+- 切断は 60 秒の猶予後に CPU が可逆的に代打する。ソロ試遊は「ソロで試す」1 クリックで CPU 2 体と即対戦
+
+詳細な設計判断（バグの設計段階での解消、ルーム・再接続・CPU の仕様等）は同スペックの該当節を参照する。
 
 ---
 
-## 5. 開発・検証
+## 4. 検証コマンド
 
 ```bash
-npm install
-# .env に OPENAI_API_KEY=... を置く（無くてもフォールバックで起動はする）
-npm start          # http://localhost:3000
+npm run check   # lint(--max-warnings 0) + typecheck + test + build
+npm run e2e     # Playwright（ソロ導線・複数人対戦の完走を実ブラウザで検証）
 ```
 
-- Node v22 で動作確認済み（`engines` 指定は現ブランチの package.json にはない）
-- **テストも CI も存在しない**。したがって「実装完了」を宣言する前の検証は、
-  **サーバを起動し、ブラウザのタブを3つ開いて実際に1ゲーム最後まで通す**こと。
-  ここを省略して完了報告しない
-- テスト基盤の導入自体が未着手の課題（フェーズ遷移とスコア判定はユニットテストしやすい）
+**実装完了を宣言する前に `/playtest` スキルを必ず実行すること。** `npm run check` と `npm run e2e` のグリーンだけでは不十分で、実際にブラウザ操作で通しプレイを確認する運用にしている。
 
 ---
 
-## 6. このプロジェクトの目的（2026-07-22 時点）
+## 5. 開発ノート（維持すること）
 
-1. **就活ポートフォリオとして見せられる水準にする** — 現在 job-hunting が最優先タスク。面接で見せる可能性がある
-2. **ゲームとして面白くする** — ルールの納得感、採点根拠の可視化
-
-**「3人集めないと遊べない」ことがポートフォリオとしての最大の障害**。面接官が一人で触れる導線（CPU 相手のソロ試遊、またはリプレイ再生）が要る。
-
-推奨する着手順: ルーム制の導入 → ソロ試遊導線 → README をデプロイ版に合わせて書き直し → ブランチ統合。
-
----
-
-## 7. 約束事
-
+- **express は 4 系固定**（`app.get('*')` と `@types/express` が express 5 で壊れる）。安易な npm update 禁止
+- root `package.json` の `overrides.vite: ^6` は vitest 3 が vite 7 を取り得るための固定。vitest 4 移行時に外す
+- スコアの向きは **0 = 深い関連 / 100 = 浅い（無関係）**。実装・UI 文言両方でこの向きを守る
 - `.env` は Read も Edit もしない（グローバル CLAUDE.md の方針）
-- 実装記録・決定ログはこのファイルに書かない。`docs/implementation-log.md` を作ってそちらへ
-- 大きな変更の前にキー判断（ルーム設計、状態の持ち方、LLM プロバイダ選択）を先に提示して承認を取る
+
+---
+
+## 6. 約束事
+
+- 実装記録・決定ログはこのファイルに書かない。`docs/implementation-log.md` に追記する
+- 大きな変更（ルーム設計、状態の持ち方、LLM プロバイダ選択など）の前にキー判断を先に提示して承認を取る
+- main へのマージ・Render のデプロイ対象切替は、ユーザーの明示確認なしに実施しない
