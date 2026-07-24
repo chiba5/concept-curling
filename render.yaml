@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: concept-curling
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: node packages/server/dist/index.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: SCORING_PROVIDER
+        value: openai
+      - key: OPENAI_API_KEY
+        sync: false

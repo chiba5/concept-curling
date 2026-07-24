@@ -1,58 +1,44 @@
 # 概念カーリング（Concept Curling）
 
-AI が「概念同士の関連度」を採点する、新感覚の3人用ターン制ゲームです。  
-プレイヤーはできるだけ孤立した概念を提出し、最も孤立度が高い概念を出したプレイヤーが勝者となります。  
+LLM が「概念どうしの無関係度」を採点する、2〜6 人用のオンライン対戦ゲームです。
 
-👉 デモ: [https://concept-curling.onrender.com](https://concept-curling.onrender.com)
+デモ: https://concept-curling.onrender.com （Render Free — 初回アクセスは起動に 20 秒ほどかかります）
 
----
+## 遊び方（3 分）
 
-## 🎮 ゲームルール
+- **ソロで試す**: トップの「ソロで試す」ボタン → CPU 2 体との 3 人戦がすぐ始まります
+- **友人と**: 「ルームを作る」→ 発行されたルームコードを共有（2〜6 人・人数やライフ数などのルールを調整可能）
+- **ルール**（ロビーに表示される 4 項目）:
+  1. 2 つのテーマが出ます。各自、テーマと「深すぎず浅すぎない」概念を 5 つ非公開で出します
+  2. AI が各概念とテーマの無関係度を 0〜100 で採点します（**0 = 深い関連、100 = 無関係**）。合計が上限（既定 150）以下の概念だけをライフにできます（最大 3 つ、うち 1 つは相手に見えない SECRET）
+  3. 全員同時に攻撃概念を 1 つ出します。攻撃と相手ライフの採点が **10 以上 50 未満**（既定の破壊帯）ならそのライフは破壊されます（近すぎても遠すぎても壊れません）
+  4. ライフが尽きたら脱落。最後まで残った人の勝ちです
 
-1. プレイヤーは3人。各自2ターンずつ概念を提出します。
-2. 概念が2つ以上揃うと、全ペアの関連度を **LLM(OpenAI)** が `0〜100` で採点。  
-   - `0` = 非常に強い関連  
-   - `100` = ほぼ無関係
-3. 各概念について、他の概念とのスコアのうち **最も低いスコア（＝最も深い関連）** を代表値とします。
-4. この代表値が最も高い（＝最も孤立している）概念を出したプレイヤーが勝利！
+## 技術スタック
 
----
+TypeScript monorepo (npm workspaces) / React 19 + Vite / Express 4 + socket.io / zod / Vitest + Playwright / GitHub Actions
 
-## ✨ 特徴
+## アーキテクチャ
 
-- **AI 採点が絶対基準**  
-  人間の主観ではなく LLM が判定することで、公平かつユニークなゲーム性を実現。
+- `packages/shared` — 型・zod スキーマ・定数（クライアント/サーバの単一情報源）
+- `packages/server` — 純粋関数ゲームエンジン（I/O 非依存）/ LLM 採点層（OpenAI + フォールバック）/ ルーム・再接続・CPU 制御
+- `packages/client` — React SPA（活版・組版スタイル）
+- 設計の要点: サーバが唯一の権威 / プロンプトはサーバのみが構築 / 切断は 60 秒の猶予後に CPU が代打（復帰可能）
 
-- **孤立を目指す逆転の発想**  
-  「関連度が低い＝勝ち」という、従来の連想ゲームとは真逆の戦略性。
-
-- **アート性**  
-  概念を点、関連度を辺の長さとみなし、最後には立体的な構造が浮かび上がる。  
-  単なるゲームでなく、思考の「配置」を可視化するアート作品でもある。
-
----
-
-## 🛠️ 技術スタック
-
-- **フロントエンド**: HTML, CSS, JavaScript  
-- **バックエンド**: Node.js (Express)  
-- **AI 評価**: OpenAI Chat Completions API  
-- **デプロイ**: Render (Free Plan)
-
----
-
-## 🚀 ローカル開発
+## 開発
 
 ```bash
-# クローン
-git clone https://github.com/chiba5/concept-curling.git
-cd concept-curling
-
-# 依存インストール
 npm install
+npm run dev -w @concept-curling/server   # サーバ (tsx watch, :3000)
+npm run dev -w @concept-curling/client   # クライアント (vite, :5173 → /api,/socket.io をプロキシ)
+npm run check   # lint + typecheck + test + build
+npm run e2e     # Playwright
+# 初回は npx playwright install chromium が必要（ビルド済みサーバを自動起動して検証）
+```
 
-# .env を作成して APIキーを設定
-echo "OPENAI_API_KEY=sk-xxxxxxxx" > .env
+環境変数は `.env.example` を参照してください。`OPENAI_API_KEY` が無くても簡易採点（DemoScorer）で全機能が動作します。
 
-# 開発サーバ起動
-npm start
+## テスト
+
+- ユニット・統合テスト（ゲームエンジン・LLM 採点層・ルーム管理・socket 経由の E2E）
+- Playwright（ソロ導線、複数人対戦の完走までを実ブラウザで検証）

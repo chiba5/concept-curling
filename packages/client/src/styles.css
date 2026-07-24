@@ -1,0 +1,374 @@
+/* ============================================================
+   概念カーリング — 活版・組版デザインシステム
+   紙 #f7f4ee / 墨 #1b1b1b / 朱 #c73e3a / 薄墨 #8a857b / 罫 #c9c4b8
+   禁止: 角丸・グラデーション・影・emoji
+   ============================================================ */
+
+:root {
+  --paper: #f7f4ee;
+  --ink: #1b1b1b;
+  --vermilion: #c73e3a;
+  --faded: #8a857b;
+  --rule: #c9c4b8;
+  /* 流体タイポ: モバイル→PC で連続伸縮 */
+  --fs-xs: clamp(0.68rem, 0.6rem + 0.3vw, 0.8rem);
+  --fs-sm: clamp(0.8rem, 0.72rem + 0.35vw, 0.95rem);
+  --fs-md: clamp(0.95rem, 0.85rem + 0.5vw, 1.15rem);
+  --fs-lg: clamp(1.2rem, 1rem + 1vw, 1.7rem);
+  --fs-xl: clamp(1.7rem, 1.3rem + 2vw, 2.8rem);
+  --space: clamp(12px, 1.5vw, 24px);
+  font-family: 'Yu Mincho', 'YuMincho', 'Hiragino Mincho ProN', 'Noto Serif JP', Georgia, serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-size: var(--fs-md);
+  line-height: 1.8;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- ページ枠（Frame）--- */
+.frame {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--space);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+.frame-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space);
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 8px;
+}
+.frame-title {
+  font-size: var(--fs-sm);
+  letter-spacing: 0.35em;
+  font-weight: 400;
+}
+.frame-sub {
+  font-size: var(--fs-xs);
+  color: var(--faded);
+  font-variant-numeric: oldstyle-nums;
+}
+.frame-body {
+  flex: 1;
+  padding-top: var(--space);
+}
+
+/* --- 見出し・ラベル --- */
+.heading {
+  font-size: var(--fs-lg);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  margin-bottom: calc(var(--space) / 2);
+}
+.label {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.35em;
+  color: var(--faded);
+  display: block;
+  margin-bottom: 4px;
+}
+.themes {
+  font-size: var(--fs-xl);
+  letter-spacing: 0.15em;
+  text-align: center;
+  margin: var(--space) 0;
+}
+.themes .x {
+  color: var(--faded);
+  font-size: var(--fs-lg);
+  margin: 0 0.4em;
+}
+
+/* --- 罫線区切りセクション --- */
+.section {
+  border-top: 1px solid var(--ink);
+  padding-top: calc(var(--space) / 2);
+  margin-top: var(--space);
+}
+
+/* --- ボタン・入力（角丸なし・線の言語）--- */
+.btn {
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  letter-spacing: 0.25em;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  padding: 10px 22px;
+  cursor: pointer;
+}
+.btn:hover:not(:disabled) {
+  background: var(--ink);
+  color: var(--paper);
+}
+.btn:disabled {
+  color: var(--faded);
+  border-color: var(--rule);
+  cursor: default;
+}
+.btn-primary {
+  background: var(--ink);
+  color: var(--paper);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--vermilion);
+  border-color: var(--vermilion);
+}
+.btn-danger {
+  color: var(--vermilion);
+  border-color: var(--vermilion);
+}
+
+.input {
+  font-family: inherit;
+  font-size: var(--fs-md);
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--ink);
+  padding: 8px 2px;
+  width: 100%;
+}
+.input:focus {
+  outline: none;
+  border-bottom-color: var(--vermilion);
+}
+.input::placeholder {
+  color: var(--faded);
+}
+
+.field {
+  margin-bottom: var(--space);
+}
+
+/* --- プレイヤー帯 --- */
+.players {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  margin: var(--space) 0;
+}
+.player {
+  background: var(--paper);
+  padding: 10px 12px;
+}
+.player.me {
+  background: #fffdf8;
+}
+.player.dead {
+  color: var(--faded);
+}
+.player .name {
+  font-size: var(--fs-sm);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.player .life {
+  letter-spacing: 3px;
+  font-size: var(--fs-md);
+}
+.player .life .lost {
+  color: var(--rule);
+}
+.player .life .secret-mark {
+  color: var(--vermilion);
+}
+.player .chips {
+  font-size: var(--fs-xs);
+  color: var(--faded);
+}
+.player .grace {
+  font-size: var(--fs-xs);
+  color: var(--vermilion);
+  font-variant-numeric: tabular-nums;
+}
+.badge-ready {
+  color: var(--faded);
+  font-size: var(--fs-xs);
+}
+
+/* --- スコア表（選抜・判定録共通）--- */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+.table th {
+  font-weight: 400;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.2em;
+  color: var(--faded);
+  text-align: left;
+  border-bottom: 1px solid var(--ink);
+  padding: 6px 8px;
+}
+.table td {
+  border-bottom: 1px dotted var(--rule);
+  padding: 8px;
+  vertical-align: baseline;
+}
+.table .num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.table .num-big {
+  font-size: var(--fs-lg);
+  line-height: 1;
+}
+.table .why {
+  font-size: var(--fs-xs);
+  color: var(--faded);
+}
+.pickable-no {
+  color: var(--faded);
+  text-decoration: line-through;
+  text-decoration-color: var(--rule);
+}
+
+/* --- 破壊演出: 朱の打ち消し線がすっと引かれ、沈む --- */
+@keyframes strike {
+  from {
+    background-size: 0% 2px;
+  }
+  to {
+    background-size: 100% 2px;
+  }
+}
+.destroyed {
+  background-image: linear-gradient(var(--vermilion), var(--vermilion));
+  background-repeat: no-repeat;
+  background-position: 0 55%;
+  background-size: 100% 2px;
+  animation: strike 0.6s ease-out;
+  color: var(--faded);
+}
+.destroyed-score {
+  color: var(--vermilion);
+}
+
+/* --- 判定録 --- */
+.turn {
+  border: 1px solid var(--rule);
+  margin-bottom: var(--space);
+}
+.turn-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--fs-sm);
+}
+.turn-body {
+  padding: 8px 12px;
+  overflow-x: auto;
+}
+.verdict {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 16px;
+  padding: 8px 0;
+  border-bottom: 1px dotted var(--rule);
+}
+.verdict:last-child {
+  border-bottom: none;
+}
+.verdict .pair {
+  font-size: var(--fs-md);
+}
+.verdict .score {
+  font-size: var(--fs-lg);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.verdict .why {
+  grid-column: 1 / -1;
+  font-size: var(--fs-xs);
+  color: var(--faded);
+}
+
+/* --- 選抜候補 --- */
+.cand {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 8px 12px;
+  align-items: baseline;
+  padding: 10px 4px;
+  border-bottom: 1px dotted var(--rule);
+}
+.cand label {
+  cursor: pointer;
+}
+.cand .word {
+  font-size: var(--fs-lg);
+}
+.cand .why {
+  grid-column: 2 / -1;
+  font-size: var(--fs-xs);
+  color: var(--faded);
+}
+
+/* --- 通知・エラー --- */
+.notice {
+  font-size: var(--fs-sm);
+  color: var(--faded);
+}
+.error {
+  font-size: var(--fs-sm);
+  color: var(--vermilion);
+  min-height: 1.8em;
+}
+
+/* --- ロビー --- */
+.lobby-actions {
+  display: grid;
+  gap: var(--space);
+  grid-template-columns: 1fr;
+  margin: var(--space) 0;
+}
+.rules {
+  font-size: var(--fs-sm);
+  color: var(--ink);
+}
+.rules li {
+  margin-bottom: 0.4em;
+  margin-left: 1.2em;
+}
+
+/* --- 非対称グリッド（PC のみ 2 カラム）--- */
+@media (min-width: 720px) {
+  .lobby-actions {
+    grid-template-columns: 5fr 4fr;
+  }
+  .game-grid {
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    gap: var(--space);
+    align-items: start;
+  }
+}
+
+/* --- ローディング（コールドスタート対策の丁寧表示）--- */
+.loading {
+  text-align: center;
+  padding: calc(var(--space) * 3) 0;
+  color: var(--faded);
+  letter-spacing: 0.3em;
+  font-size: var(--fs-sm);
+}
