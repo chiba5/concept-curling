@@ -42,7 +42,8 @@ export function resolveTurn(state: GameState, results: PairResult[]): Result {
       pair.targetKind === 'secret' && secret && !secret.revealed ? 'SECRET' : pair.targetConcept;
 
     let destroyed = false;
-    if (score > destroyThreshold && owner && lives) {
+    // v2.2: 「関連度 destroyThreshold 以上で破壊」（>=）。旧「超えたら」（>）から変更
+    if (score >= destroyThreshold && owner && lives) {
       if (pair.targetKind === 'normal') {
         const idx = lives.open.indexOf(pair.targetConcept);
         if (idx !== -1) {

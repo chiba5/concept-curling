@@ -18,9 +18,9 @@ describe('decidePick（allSecret: false）', () => {
     cand('丁', 100, true),
     cand('戊', 90, true),
   ];
-  it('pickable の中から合計の高い順に maxLives 個選ぶ', () => {
+  it('pickable の中から合計の低い（=推測されにくい）順に maxLives 個選ぶ', () => {
     const r = decidePick(candidates, 3, false);
-    expect(r?.selectedIndices).toEqual([0, 3, 4]); // 甲120, 丁100, 戊90（昇順に整列）
+    expect(r?.selectedIndices).toEqual([1, 3, 4]); // 乙80, 戊90, 丁100（昇順に整列）
   });
   it('SECRET は選抜内から 1 個だけランダムに選ばれる', () => {
     for (let i = 0; i < 20; i++) {
@@ -32,9 +32,9 @@ describe('decidePick（allSecret: false）', () => {
       }
     }
   });
-  it('maxLives 1 なら最大合計の 1 つ', () => {
+  it('maxLives 1 なら pickable の最小合計の 1 つ', () => {
     const r = decidePick(candidates, 1, false);
-    expect(r).toEqual({ selectedIndices: [0], secretIndexes: [0] });
+    expect(r).toEqual({ selectedIndices: [1], secretIndexes: [1] });
   });
   it('pickable が 0 件なら null（エンジン側で即敗北済みの局面）', () => {
     expect(decidePick([cand('甲', 200, false)], 3, false)).toBeNull();

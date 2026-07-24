@@ -57,8 +57,17 @@ describe('DemoScorer', () => {
     expect(c).toHaveLength(5);
     expect(c.every((x) => !avoid.includes(x))).toBe(true);
   });
-  it('generateAttack は非空文字列を返す', async () => {
-    const a = await scorer.generateAttack(['星座'], ['灯台', '簿記']);
+  it('generateAttack は非空文字列を返し、avoid の語は使わない', async () => {
+    for (let i = 0; i < 20; i++) {
+      const dodged = await scorer.generateAttack(
+        ['星座'],
+        ['灯台', '簿記'],
+        ['灯台装置', '簿装置'],
+      );
+      expect(dodged.trim().length).toBeGreaterThan(0);
+      expect(['灯台装置', '簿装置']).not.toContain(dodged);
+    }
+    const a = await scorer.generateAttack(['星座'], ['灯台', '簿記'], []);
     expect(typeof a).toBe('string');
     expect(a.length).toBeGreaterThan(0);
   });

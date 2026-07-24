@@ -56,17 +56,24 @@ function sampleGenres(count: number): string[] {
 }
 
 const CONCEPT_SYSTEM = `あなたは連想ゲームの熟練プレイヤー。出力は必ずJSONのみ。
-目的: 各テーマと「深すぎず浅すぎない中距離」の関連（関連度 40〜60 目安）を持つ概念を出す。
+このゲームでは、テーマから相手に推測されない概念をライフに選んだ側が生き残る。
+目的: 各テーマと「関連はあるが推測されにくい」概念（関連度 30〜55 目安）を出す。
 厳守:
-- テーマの語やその一部を含む語・複合語は禁止（例: テーマ「夢」に「夢日記」「夢の中の風船」は不可）
+- 同義語・類義語・直接連想は禁止（例: テーマ「寂しさ」に「孤独」「孤立」は不可 — 一発で当てられる）
+- テーマの語やその一部を含む語・複合語は禁止（例: テーマ「夢」に「夢日記」は不可）
+- 2 ホップの意外な連想へ飛ばす。突飛だが説明されれば繋がる語が理想
+  （例: 「寂しさ」→「留守番電話」「深夜ラジオ」「消灯」／「夢」→「枕」「宇宙」／「風船」→「ヘリウム」「浮力」）
 - 独立した短い名詞 1 語（1〜6 文字程度）
-- 同義語・直接の上位下位語ではなく、1〜2 ホップの間接連想にする
-  （例: 「夢」→「宇宙」「枕」「予知」／「風船」→「誕生日」「ヘリウム」「浮力」）
 - 与えられた禁止語（使用不可）と同じ・似た語は避ける`;
 
 const ATTACK_SYSTEM = `あなたは連想ゲームの攻撃者。出力は必ずJSONのみ。
-対象概念のどれかと「中程度以上の関連（関連度 51 以上を狙う。同義・包含ではなく連想でつながる）」を持つ
-独立した短い名詞 1 語を生成する。対象概念の語やその一部を含む複合語は禁止。`;
+状況: 相手はテーマから連想した概念を非公開のライフとして持っている。攻撃概念との関連度が高いと破壊できる。
+目的: 相手が選んでいそうな概念を推測し、それに強い関連（同義・包含ではなく連想）で当たる攻撃を 1 つ出す。
+厳守:
+- 公開された対象概念があればそのどれかへの命中を最優先で狙う
+- 対象が不明（テーマしか無い）なら、相手が選びそうな中距離連想語（例: テーマ「夢」なら「枕」「宇宙」）を想定して狙う
+- 禁止語（過去の攻撃・破壊済み概念・テーマ語）と同じ・ほぼ同じ語は使わない。毎ターン別の角度から攻める
+- 独立した短い名詞 1 語（20 字以内）。対象概念の語やその一部を含む複合語は禁止`;
 
 /** OpenAI Chat Completions を fetch 直叩き。失敗・不正形は throw（穴埋めは ResilientScorer の責務） */
 export class OpenAIScorer {
@@ -163,10 +170,15 @@ ${JSON.stringify(pairs.map((p, i) => ({ i, a: p.a, b: p.b })))}
     return arr.filter((x): x is string => typeof x === 'string');
   }
 
-  async generateAttack(themes: string[], targetConcepts: string[]): Promise<string> {
+  async generateAttack(
+    themes: string[],
+    targetConcepts: string[],
+    avoid: string[],
+  ): Promise<string> {
     const user = `テーマ: ${JSON.stringify(themes)}
-対象概念: ${JSON.stringify(targetConcepts)}
-要件: 対象概念のどれかと中程度の関連を持つ攻撃概念を 1 つ（20字以内）。
+対象概念（公開分。テーマと同じなら非公開しかいない）: ${JSON.stringify(targetConcepts)}
+禁止語（使用不可）: ${JSON.stringify(avoid)}
+要件: 上記の厳守事項に従い、相手のライフに当たりそうな攻撃概念を 1 つ（20字以内）。
 出力: {"attack":"概念"}`;
     const json = (await this.callJson(ATTACK_SYSTEM, user, GENERATION_TEMPERATURE)) as {
       attack?: unknown;

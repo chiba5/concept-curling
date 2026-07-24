@@ -13,15 +13,15 @@ export const DEFAULT_CONFIG: GameConfig = {
   playerCount: 3,
   conceptsPerPlayer: 5,
   maxLives: 3,
-  pickMinTotal: 50,
-  destroyThreshold: 50,
+  pickMinTotal: 30,
+  destroyThreshold: 70,
   allSecret: true,
   themes: { count: 2, mode: 'llm' },
   graceSeconds: 60,
 };
 
 /** テーマ数から pickMinTotal の推奨初期値を出す（UI 用） */
-export const suggestedPickMinTotal = (themeCount: number): number => themeCount * 25;
+export const suggestedPickMinTotal = (themeCount: number): number => themeCount * 15;
 
 export const MAX_CONCEPT_LENGTH = 20;
 export const MAX_NAME_LENGTH = 12;

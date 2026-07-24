@@ -18,7 +18,7 @@ export interface GameConfig {
   conceptsPerPlayer: number; // 3..9
   maxLives: number; // 1..conceptsPerPlayer-1
   pickMinTotal: number; // 全テーマとの関連度合計の下限
-  destroyThreshold: number; // 0..99、これを超えたら破壊
+  destroyThreshold: number; // 0..99、関連度がこれ以上なら破壊（score >= destroyThreshold）
   /** true なら選んだライフ全部が SECRET（公開ライフなし）。false は従来（公開 + SECRET 1 つ） */
   allSecret: boolean;
   themes: ThemeConfig;

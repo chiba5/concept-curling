@@ -430,9 +430,19 @@ export class Room {
       const targets = this.state.seats
         .filter((s) => s.alive && s.seat !== seat)
         .flatMap((s) => s.lives?.open ?? []);
+      // 攻撃の繰り返し防止: 過去の全攻撃・同ターンの提出済み攻撃・破壊済み概念・テーマ語を避ける
+      const avoid = [
+        ...new Set([
+          ...this.state.turns.flatMap((t) => t.attacks.map((a) => a.concept)),
+          ...this.state.seats.flatMap((s) => (s.attack !== null ? [s.attack] : [])),
+          ...this.state.turns.flatMap((t) => t.destroys.map((d) => d.concept)),
+          ...this.state.themes,
+        ]),
+      ];
       const attack = await this.scorer.generateAttack(
         [...this.state.themes],
         targets.length ? targets : [...this.state.themes],
+        avoid,
       );
       await this.attack(seat, attack);
     }

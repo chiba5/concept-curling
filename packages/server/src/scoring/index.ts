@@ -122,16 +122,22 @@ export class ResilientScorer implements Scorer {
     return out.slice(0, n);
   }
 
-  async generateAttack(themes: string[], targetConcepts: string[]): Promise<string> {
+  async generateAttack(
+    themes: string[],
+    targetConcepts: string[],
+    avoid: string[],
+  ): Promise<string> {
+    const avoidSet = new Set(avoid.map((a) => a.trim()));
     if (this.primary) {
       try {
-        const a = (await this.primary.generateAttack(themes, targetConcepts)).trim();
-        if (a) return a.slice(0, MAX_CONCEPT_LENGTH);
+        const a = (await this.primary.generateAttack(themes, targetConcepts, avoid)).trim();
+        // primary が禁止語を無視した場合も demo 側の回避ロジックに落とす
+        if (a && !avoidSet.has(a)) return a.slice(0, MAX_CONCEPT_LENGTH);
       } catch (e) {
         logPrimaryFailure('generateAttack', e);
       }
     }
-    return this.demo.generateAttack(themes, targetConcepts);
+    return this.demo.generateAttack(themes, targetConcepts, avoid);
   }
 }
 

@@ -188,13 +188,24 @@ describe('ResilientScorer', () => {
     expect(c).toHaveLength(5);
     expect(new Set(c).size).toBe(5);
   });
+  it('generateAttack: primary が禁止語を返したら demo の回避ロジックに落とす', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(openaiResponse({ attack: '嵐' }));
+    const s = new ResilientScorer(
+      new OpenAIScorer(opts(fetchFn as typeof fetch)),
+      new DemoScorer(),
+      { provider: 'openai', model: 'gpt-4o-mini' },
+    );
+    const a = await s.generateAttack(['星座'], ['灯台'], ['嵐']);
+    expect(a).not.toBe('嵐');
+    expect(a.trim().length).toBeGreaterThan(0);
+  });
   it('primary 無し（demo 単独）でも全メソッドが動く', async () => {
     const s = new ResilientScorer(null, new DemoScorer(), { provider: 'demo', model: 'demo' });
     await expect(s.scorePairs([{ a: 'x', b: 'x' }])).resolves.toEqual([
       { score: 85, reason: '簡易採点' },
     ]);
     await expect(s.generateThemes(2)).resolves.toHaveLength(2);
-    await expect(s.generateAttack(['星座'], ['灯台'])).resolves.toBeTruthy();
+    await expect(s.generateAttack(['星座'], ['灯台'], [])).resolves.toBeTruthy();
   });
   it('demo 穴埋め結果はキャッシュされず、復旧後に primary で再採点される', async () => {
     const fetchFn = vi

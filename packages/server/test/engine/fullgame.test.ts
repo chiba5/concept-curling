@@ -21,11 +21,11 @@ describe('フルゲーム統合（3人・既定ルール）', () => {
     s = unwrap(startTheming(s));
     s = unwrap(applyThemes(s, ['星座', '航海']));
 
-    // 提出と採点（席3 は全候補 total 40 < 50 で即敗北させる）
+    // 提出と採点（席3 は全候補 total 20 < 30 で即敗北させる）
     for (const seat of [1, 2, 3]) {
       const concepts = ['灯台', '羊皮紙', '炊飯器', '季節風', '簿記'].map((c) => `${c}${seat}`);
       s = unwrap(submitConcepts(s, seat, concepts));
-      const per = seat === 3 ? 20 : 55; // 席3: total 40 / 他: 110
+      const per = seat === 3 ? 10 : 55; // 席3: total 20 / 他: 110
       s = unwrap(
         applyScores(
           s,

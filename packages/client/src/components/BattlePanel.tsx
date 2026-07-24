@@ -8,7 +8,7 @@ export function BattlePanel() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const me = pub?.players.find((p) => p.seat === priv?.seat);
-  const destroyThreshold = pub?.config.destroyThreshold ?? 50;
+  const destroyThreshold = pub?.config.destroyThreshold ?? 70;
 
   if (me && !me.alive) return <p className="notice section">脱落しました。観戦中です</p>;
   if (priv?.attackSubmitted)
@@ -36,7 +36,7 @@ export function BattlePanel() {
   return (
     <div className="section">
       <span className="label">
-        攻撃概念 — 相手ライフとの関連度が {destroyThreshold} を超えたら破壊
+        攻撃概念 — 相手ライフとの関連度が {destroyThreshold} 以上なら破壊
       </span>
       <div className="field">
         <input

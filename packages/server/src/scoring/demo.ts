@@ -56,8 +56,8 @@ export class DemoScorer implements Scorer {
     return Promise.resolve(
       pairs.map(({ a, b }) => {
         // 生の bigram Jaccard 距離（0..100、大きいほど無関係）を反転して関連度に変換し [25..85] にリマップする。
-        // 無関係語 25×2 テーマ = 50 >= 既定 pickMinTotal(50) → キー無しでも選抜可能、
-        // 完全一致 85 は既定 destroyThreshold(50) 超 → 破壊、無関係 25 は destroyThreshold 以下で安全。
+        // 無関係語 25×2 テーマ = 50 >= 既定 pickMinTotal(30) → キー無しでも選抜可能、
+        // 完全一致 85 は既定 destroyThreshold(70) 以上 → 破壊、無関係 25 は 70 未満で安全。
         const v = 85 - Math.round(demoScore(a, b) * 0.6);
         return { score: v, reason: '簡易採点' };
       }),
@@ -71,8 +71,24 @@ export class DemoScorer implements Scorer {
     const pool = CONCEPT_POOL.filter((c) => !avoidSet.has(c));
     return Promise.resolve(sample(pool, n));
   }
-  generateAttack(_themes: string[], targetConcepts: string[]): Promise<string> {
-    const base = targetConcepts[Math.floor(Math.random() * targetConcepts.length)] ?? '灯台';
-    return Promise.resolve(base.length >= 2 ? `${base.slice(0, base.length - 1)}装置` : '灯台装置');
+  generateAttack(_themes: string[], targetConcepts: string[], avoid: string[]): Promise<string> {
+    const avoidSet = new Set(avoid.map((a) => a.trim()));
+    const derive = (base: string): string =>
+      base.length >= 2 ? `${base.slice(0, base.length - 1)}装置` : '灯台装置';
+    // 対象をシャッフルして avoid に当たらない攻撃語を探す。全滅なら連番で回避
+    const bases = sample(
+      targetConcepts.length ? targetConcepts : ['灯台'],
+      targetConcepts.length || 1,
+    );
+    for (const base of bases) {
+      const cand = derive(base);
+      if (!avoidSet.has(cand)) return Promise.resolve(cand);
+    }
+    const base = derive(bases[0] ?? '灯台');
+    for (let k = 2; k < 100; k++) {
+      const cand = `${base}${k}`;
+      if (!avoidSet.has(cand)) return Promise.resolve(cand);
+    }
+    return Promise.resolve(base);
   }
 }

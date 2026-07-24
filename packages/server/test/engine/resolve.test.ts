@@ -12,7 +12,7 @@ function ready2p(config = cfg({ playerCount: 2 })): GameState {
   return unwrap(submitAttack(s, 2, '雷')).state;
 }
 
-/** 全ペア一律スコアの results を作る（既定は destroyThreshold=50 以下の安全値） */
+/** 全ペア一律スコアの results を作る（既定は destroyThreshold=70 未満の安全値） */
 function flatResults(s: GameState, score = 10) {
   return attackPairs(s).map(() => ({ score, reason: '理由' }));
 }
@@ -28,11 +28,11 @@ function targeted(
 }
 
 describe('resolveTurn（allSecret: false）', () => {
-  it('destroyThreshold(既定50) 超のライフを破壊し、境界値が正しい', () => {
+  it('destroyThreshold(既定70) 以上のライフを破壊し、境界値が正しい（ちょうど 70 は破壊）', () => {
     for (const [score, destroyed] of [
-      [49, false],
-      [50, false],
-      [51, true],
+      [68, false],
+      [69, false],
+      [70, true],
       [100, true],
     ] as const) {
       const s = ready2p();

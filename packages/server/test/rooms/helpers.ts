@@ -2,8 +2,9 @@ import type { GameConfig, PrivateView, PublicState } from '@concept-curling/shar
 
 /**
  * 決定的テスト用 config（従来モード = allSecret false。1-secret 前提のテスト群をそのまま活かす）。
- * DemoScorer は [25..85] にリマップ済み: 完全一致 → 85（destroyThreshold 50 超 → 破壊）、
- * 無関係語 → 25（50 以下 → 安全）。無関係語のテーマスコア合計は 25×2=50 >= pickMinTotal 50 で全候補 pickable。
+ * DemoScorer は [25..85] にリマップ済み: 完全一致 → 85（destroyThreshold 50 以上 → 破壊）、
+ * 無関係語 → 25（50 未満 → 安全）。無関係語のテーマスコア合計は 25×2=50 >= pickMinTotal 50 で全候補 pickable。
+ * （このテスト群は既定値でなく明示 50/50 の config を固定している）
  */
 export const DET_CONFIG: GameConfig = {
   playerCount: 2,

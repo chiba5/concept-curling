@@ -9,8 +9,11 @@ export interface Scorer {
   generateThemes(count: number): Promise<string[]>;
   /** avoid: 生成結果が重複してはいけない既存概念（他プレイヤーの提出済み概念・テーマ語など） */
   generateConcepts(themes: string[], n: number, avoid: string[]): Promise<string[]>;
-  /** 相手のライフを「破壊できそうな」攻撃概念を 1 つ返す（CPU 用） */
-  generateAttack(themes: string[], targetConcepts: string[]): Promise<string>;
+  /**
+   * 相手のライフを「破壊できそうな」攻撃概念を 1 つ返す（CPU 用）。
+   * avoid: 使ってはいけない語（過去の攻撃・破壊済み概念・テーマ語。攻撃の繰り返しを防ぐ）
+   */
+  generateAttack(themes: string[], targetConcepts: string[], avoid: string[]): Promise<string>;
 }
 
 /** エンジンに渡す前の最終防衛線: 常に有限な 0..100 の整数へ */

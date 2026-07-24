@@ -192,7 +192,7 @@ export function Lobby() {
                 />
               </label>
               <label className="label">
-                破壊閾値（関連度がこれを超えたら破壊） {destroyThreshold}
+                破壊閾値（関連度がこれ以上なら破壊） {destroyThreshold}
                 <input
                   type="range"
                   min={30}
@@ -250,8 +250,8 @@ export function Lobby() {
             概念だけをライフにできます（最大 3 つ、既定では全部が相手に見えない SECRET）
           </li>
           <li>
-            全員同時に攻撃概念を 1 つ出します。攻撃と相手ライフの関連度が 50
-            を超えたら破壊。遠すぎる攻撃は届きません
+            全員同時に攻撃概念を 1 つ出します。攻撃と相手ライフの関連度が 70
+            以上なら破壊。遠すぎる攻撃は届きません
           </li>
           <li>ライフが尽きたら脱落。最後まで残った人の勝ちです</li>
         </ol>
