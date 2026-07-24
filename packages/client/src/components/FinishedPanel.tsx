@@ -6,9 +6,19 @@ export function FinishedPanel() {
   if (!pub) return null;
   const winner = pub.players.find((p) => p.seat === pub.winnerSeat);
   const isHost = priv?.seat === pub.hostSeat;
+  const outcome: 'win' | 'lose' | 'draw' =
+    pub.winnerSeat === null ? 'draw' : priv?.seat === pub.winnerSeat ? 'win' : 'lose';
 
   return (
     <div className="section">
+      {outcome === 'win' ? <Confetti /> : null}
+      <div className="stamp-row">
+        <span
+          className={`stamp ${outcome === 'win' ? 'stamp-win' : 'stamp-lose'}${outcome === 'draw' ? ' stamp-long' : ''}`}
+        >
+          {outcome === 'win' ? '勝' : outcome === 'lose' ? '敗' : '相打'}
+        </span>
+      </div>
       <h2 className="themes winner">
         {winner
           ? priv?.seat === pub.winnerSeat
@@ -40,6 +50,26 @@ export function FinishedPanel() {
       ) : (
         <p className="notice">ホストが再戦を開始できます</p>
       )}
+    </div>
+  );
+}
+
+function Confetti() {
+  const pieces = Array.from({ length: 24 }, (_, i) => i);
+  return (
+    <div className="confetti" aria-hidden="true">
+      {pieces.map((i) => (
+        <i
+          key={i}
+          style={{
+            left: `${(i * 41) % 100}%`,
+            background:
+              i % 3 === 0 ? 'var(--vermilion)' : i % 3 === 1 ? 'var(--ink)' : 'var(--rule)',
+            ['--dur' as string]: `${2.2 + ((i * 7) % 10) / 6}s`,
+            ['--delay' as string]: `${((i * 13) % 8) / 10}s`,
+          }}
+        />
+      ))}
     </div>
   );
 }

@@ -33,9 +33,20 @@ body {
   line-height: 1.8;
   -webkit-font-smoothing: antialiased;
 }
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background-image: radial-gradient(var(--rule) 0.5px, transparent 0.5px);
+  background-size: 26px 26px;
+  opacity: 0.12;
+}
 
 /* --- ページ枠（Frame）--- */
 .frame {
+  position: relative;
   max-width: 960px;
   margin: 0 auto;
   padding: var(--space);
@@ -80,11 +91,22 @@ body {
   display: block;
   margin-bottom: 4px;
 }
+.label::before {
+  content: '';
+  display: inline-block;
+  width: 0.5em;
+  height: 0.5em;
+  background: var(--vermilion);
+  margin-right: 8px;
+  vertical-align: baseline;
+}
 .themes {
   font-size: var(--fs-xl);
   letter-spacing: 0.15em;
   text-align: center;
   margin: var(--space) 0;
+  border-block: 3px double var(--rule);
+  padding-block: calc(var(--space) / 2);
 }
 .themes .x {
   color: var(--faded);
@@ -112,10 +134,17 @@ body {
   border: 1px solid var(--ink);
   padding: 10px 22px;
   cursor: pointer;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out,
+    transform 100ms ease-out;
 }
 .btn:hover:not(:disabled) {
   background: var(--ink);
   color: var(--paper);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
 .btn:disabled {
   color: var(--faded);
@@ -151,6 +180,13 @@ body {
 }
 .input::placeholder {
   color: var(--faded);
+}
+
+.btn:focus-visible,
+.input:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--vermilion);
+  outline-offset: 2px;
 }
 
 .field {
@@ -378,4 +414,138 @@ body {
   color: var(--faded);
   letter-spacing: 0.3em;
   font-size: var(--fs-sm);
+}
+
+/* --- 決着演出: 落款スタンプ + 紙吹雪 --- */
+.stamp-row {
+  text-align: center;
+  margin: var(--space) 0 calc(var(--space) / 2);
+}
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.1em;
+  height: 2.1em;
+  padding: 0 0.2em;
+  border: 3px solid currentColor;
+  font-size: var(--fs-xl);
+  line-height: 1;
+  letter-spacing: 0;
+  transform: rotate(-6deg);
+  animation: stamp-in 350ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+.stamp-long {
+  font-size: var(--fs-lg);
+}
+.stamp-win {
+  color: var(--vermilion);
+}
+.stamp-lose {
+  color: var(--faded);
+  animation: stamp-fade 900ms ease-out both;
+}
+@keyframes stamp-in {
+  0% {
+    transform: rotate(-14deg) scale(2.2);
+    opacity: 0;
+  }
+  60% {
+    transform: rotate(-5deg) scale(0.96);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(-6deg) scale(1);
+    opacity: 1;
+  }
+}
+@keyframes stamp-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.85;
+  }
+}
+
+.confetti {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.confetti i {
+  position: absolute;
+  top: -4vh;
+  width: 8px;
+  height: 14px;
+  opacity: 0;
+  animation: confetti-fall var(--dur, 2.6s) var(--delay, 0s) ease-in forwards;
+}
+@keyframes confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+  100% {
+    opacity: 0.9;
+    transform: translateY(108vh) rotate(540deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stamp,
+  .stamp-lose {
+    animation: stamp-fade 150ms ease-out both;
+  }
+  .confetti {
+    display: none;
+  }
+}
+
+/* --- 印刷トンボ（四隅の飾り）--- */
+.crop {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 0 solid var(--faded);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.crop.tl {
+  top: 10px;
+  left: 10px;
+  border-top-width: 1px;
+  border-left-width: 1px;
+}
+.crop.tr {
+  top: 10px;
+  right: 10px;
+  border-top-width: 1px;
+  border-right-width: 1px;
+}
+.crop.bl {
+  bottom: 10px;
+  left: 10px;
+  border-bottom-width: 1px;
+  border-left-width: 1px;
+}
+.crop.br {
+  bottom: 10px;
+  right: 10px;
+  border-bottom-width: 1px;
+  border-right-width: 1px;
+}
+
+/* --- 落款ロゴ --- */
+.seal-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7em;
+  height: 1.7em;
+  margin-right: 10px;
+  background: var(--vermilion);
+  color: var(--paper);
+  letter-spacing: 0;
+  transform: rotate(-3deg);
 }
