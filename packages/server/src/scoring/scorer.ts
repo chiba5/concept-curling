@@ -23,6 +23,18 @@ export interface Scorer {
       clues: { owner: string; life: string; hints: { attack: string; score: number }[] }[];
     },
   ): Promise<string>;
+  /**
+   * 相手が置いていそうなライフ概念の推測候補を返す（CPU 推理用）。
+   * hints は狙う秘ライフに対する「過去の攻撃語 × 関連度」の履歴。
+   * 低スコア履歴 = その領域の除外、高スコア履歴 = 近傍の優先、という推論を LLM に任せる。
+   * 推理を提供できない実装（demo）は空配列を返してよい（呼び出し側が従来生成へフォールバックする）。
+   */
+  generateHypotheses(
+    themes: string[],
+    hints: { attack: string; score: number }[],
+    n: number,
+    avoid: string[],
+  ): Promise<string[]>;
 }
 
 /** エンジンに渡す前の最終防衛線: 常に有限な 0..100 の整数へ */

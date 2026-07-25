@@ -62,47 +62,91 @@ describe('decidePick（pairScore による分散）', () => {
   });
 });
 
-describe('decideAttack（自滅の自己検査）', () => {
-  const stub = (attacks: string[], riskByAttack: Record<string, number>): Scorer => {
-    let call = 0;
+describe('decideAttack（仮説駆動）', () => {
+  /** score(a,b) をテーブルで返すスタブ。未定義ペアは 10（遠い） */
+  const stub = (opts: {
+    hypos?: string[];
+    attacks?: string[];
+    table?: Record<string, number>;
+  }): Scorer => {
+    let gi = 0;
     return {
       scorePairs: vi.fn((pairs: { a: string; b: string }[]) =>
-        Promise.resolve(pairs.map((p) => ({ score: riskByAttack[p.a] ?? 0, reason: 'r' }))),
+        Promise.resolve(
+          pairs.map((p) => ({ score: opts.table?.[`${p.a}|${p.b}`] ?? 10, reason: 'r' })),
+        ),
       ),
       generateThemes: vi.fn(),
       generateConcepts: vi.fn(),
+      generateHypotheses: vi.fn(() => Promise.resolve(opts.hypos ?? [])),
       generateAttack: vi.fn(() =>
-        Promise.resolve(attacks[Math.min(call++, attacks.length - 1)] ?? ''),
+        Promise.resolve(opts.attacks?.[Math.min(gi++, (opts.attacks?.length ?? 1) - 1)] ?? ''),
       ),
     } as unknown as Scorer;
   };
-  it('自分のライフとの関連が閾値未満ならそのまま採用する', async () => {
-    const s = stub(['安全な語'], { 安全な語: 30 });
-    await expect(
-      decideAttack(s, ['星座'], ['灯台'], [], { ownLives: ['書庫'], clues: [] }, 70),
-    ).resolves.toBe('安全な語');
+  const ctx = (over: Partial<Parameters<typeof decideAttack>[1]> = {}) => ({
+    themes: ['星座'],
+    ownLives: ['書庫'],
+    opponents: [{ seat: 2, name: '相手', livesRemaining: 2, openLives: [] }],
+    clues: [
+      {
+        seat: 2,
+        owner: '相手',
+        life: '秘1',
+        hints: [{ attack: '嵐', score: 60 }],
+      },
+    ],
+    avoid: [],
+    destroyThreshold: 70,
+    ...over,
   });
-  it('破壊圏なら作り直し、2 案目が安全ならそちらを使う', async () => {
-    const s = stub(['危険な語', '安全な語'], { 危険な語: 85, 安全な語: 20 });
-    await expect(
-      decideAttack(s, ['星座'], ['灯台'], [], { ownLives: ['書庫'], clues: [] }, 70),
-    ).resolves.toBe('安全な語');
-    // 2 回目の生成には 1 案目が禁止語として渡る
-    const gen = (s.generateAttack as ReturnType<typeof vi.fn>).mock.calls;
-    expect(gen[1]?.[2]).toContain('危険な語');
+  it('判定録との誤差が最小の安全な仮説を採用する', async () => {
+    // A は観測(嵐=60)と整合、B は不整合。両方安全 → A
+    const s = stub({
+      hypos: ['A', 'B'],
+      table: { 'A|嵐': 60, 'B|嵐': 10, 'A|書庫': 20, 'B|書庫': 20 },
+    });
+    await expect(decideAttack(s, ctx())).resolves.toBe('A');
   });
-  it('2 案とも破壊圏なら自滅リスクの低い方を使う', async () => {
-    const s = stub(['危険A', '危険B'], { 危険A: 95, 危険B: 75 });
-    await expect(
-      decideAttack(s, ['星座'], ['灯台'], [], { ownLives: ['書庫'], clues: [] }, 70),
-    ).resolves.toBe('危険B');
+  it('誤差最小でも自ライフに破壊圏なら次の安全な仮説へ回す', async () => {
+    const s = stub({
+      hypos: ['A', 'B'],
+      table: { 'A|嵐': 60, 'B|嵐': 55, 'A|書庫': 90, 'B|書庫': 20 },
+    });
+    await expect(decideAttack(s, ctx())).resolves.toBe('B');
   });
-  it('自分のライフが無ければ検査せず 1 案目を使う', async () => {
-    const s = stub(['何でも'], {});
-    await expect(
-      decideAttack(s, ['星座'], ['灯台'], [], { ownLives: [], clues: [] }, 70),
-    ).resolves.toBe('何でも');
-    expect(s.scorePairs).not.toHaveBeenCalled();
+  it('残りライフ最多の相手の手掛かりで推理する（主標的の選択）', async () => {
+    const s = stub({ hypos: ['A'], table: { 'A|書庫': 20 } });
+    await decideAttack(
+      s,
+      ctx({
+        opponents: [
+          { seat: 2, name: '弱い方', livesRemaining: 1, openLives: [] },
+          { seat: 3, name: '強い方', livesRemaining: 3, openLives: [] },
+        ],
+        clues: [
+          { seat: 2, owner: '弱い方', life: '秘1', hints: [{ attack: '弱ヒント', score: 50 }] },
+          { seat: 3, owner: '強い方', life: '秘1', hints: [{ attack: '強ヒント', score: 50 }] },
+        ],
+      }),
+    );
+    const call = (s.generateHypotheses as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call?.[1]).toEqual([{ attack: '強ヒント', score: 50 }]);
+  });
+  it('仮説が無ければ従来生成にフォールバックし、安全な語を採用する', async () => {
+    const s = stub({ hypos: [], attacks: ['安全な語'], table: { '安全な語|書庫': 30 } });
+    await expect(decideAttack(s, ctx())).resolves.toBe('安全な語');
+  });
+  it('生成が全て破壊圏なら中立プールの最小リスク語を出す（自滅攻撃は決して投げない）', async () => {
+    const table: Record<string, number> = {
+      '危険A|書庫': 95,
+      '危険B|書庫': 90,
+      '危険C|書庫': 85,
+    };
+    const s = stub({ hypos: [], attacks: ['危険A', '危険B', '危険C'], table });
+    const a = await decideAttack(s, ctx());
+    expect(['危険A', '危険B', '危険C']).not.toContain(a);
+    expect(a.trim().length).toBeGreaterThan(0);
   });
 });
 

@@ -57,7 +57,8 @@ function sampleGenres(count: number): string[] {
 
 const CONCEPT_SYSTEM = `あなたは連想ゲームの熟練プレイヤー。出力は必ずJSONのみ。
 このゲームでは、テーマから相手に推測されない概念をライフに選んだ側が生き残る。
-目的: 各テーマと「関連はあるが推測されにくい」概念（関連度 30〜55 目安）を出す。
+目的: 各テーマと「関連はあるが推測されにくい」概念（各テーマと関連度 20〜35 目安。合計が選抜下限を
+わずかに超える“遠さ”が理想 — 近いほど相手に当てられる）を出す。
 厳守:
 - 同義語・類義語・直接連想は禁止（例: テーマ「寂しさ」に「孤独」「孤立」は不可 — 一発で当てられる）
 - テーマの語やその一部を含む語・複合語は禁止（例: テーマ「夢」に「夢日記」は不可）
@@ -67,6 +68,16 @@ const CONCEPT_SYSTEM = `あなたは連想ゲームの熟練プレイヤー。�
   （1 つの攻撃語で複数の概念が同時に壊されないための分散）
 - 独立した短い名詞 1 語（1〜6 文字程度）
 - 与えられた禁止語（使用不可）と同じ・似た語は避ける`;
+
+const HYPO_SYSTEM = `あなたは連想ゲームの推理役。出力は必ずJSONのみ。
+相手はテーマから「関連はあるが直接的でない」概念を秘密のライフとして置いている。
+過去の攻撃語とその関連度（0-100）が手掛かり。100=同一語、60〜69=かなり近い（惜しい）、30以下=遠い。
+厳守:
+- 関連度 30 以下だった攻撃語と同じ領域・同じ系統の推測は出さない（除外推論。外れた領域を掘り続けない）
+- 関連度 60 以上の攻撃語があれば、その近傍・連想先を最優先で出す
+- 手掛かりが無い・乏しい場合は、テーマから人間が選びがちな中距離連想を互いに離れた複数の領域から広く出す
+- 独立した短い名詞 1 語、重複なし。禁止語と同じ・似た語は出さない
+出力: {"guesses":["概念1", ...]}`;
 
 const ATTACK_SYSTEM = `あなたは連想ゲームの攻撃者。出力は必ずJSONのみ。
 状況: 相手はテーマから連想した概念を非公開のライフとして持っている。攻撃概念との関連度が高いと破壊できる。
@@ -175,6 +186,24 @@ ${JSON.stringify(pairs.map((p, i) => ({ i, a: p.a, b: p.b })))}
     };
     const arr = Array.isArray(json.concepts) ? json.concepts : [];
     return arr.filter((x): x is string => typeof x === 'string');
+  }
+
+  async generateHypotheses(
+    themes: string[],
+    hints: { attack: string; score: number }[],
+    n: number,
+    avoid: string[],
+  ): Promise<string[]> {
+    const user = `テーマ: ${JSON.stringify(themes)}
+手掛かり（過去の攻撃語と、狙う秘ライフとの関連度）: ${JSON.stringify(hints)}
+禁止語（使用不可）: ${JSON.stringify(avoid)}
+要件: 上記の厳守事項に従い、相手が置いていそうな概念の推測を ${n} 個、重複なしで。
+出力: {"guesses":["概念1", ...]}`;
+    const json = (await this.callJson(HYPO_SYSTEM, user, GENERATION_TEMPERATURE)) as {
+      guesses?: unknown;
+    };
+    const arr = Array.isArray(json.guesses) ? json.guesses : [];
+    return arr.filter((x): x is string => typeof x === 'string' && x.trim().length > 0);
   }
 
   async generateAttack(

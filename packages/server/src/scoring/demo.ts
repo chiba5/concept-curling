@@ -71,6 +71,11 @@ export class DemoScorer implements Scorer {
     const pool = CONCEPT_POOL.filter((c) => !avoidSet.has(c));
     return Promise.resolve(sample(pool, n));
   }
+  generateHypotheses(): Promise<string[]> {
+    // demo に推理能力は無い。空配列を返し、呼び出し側（decideAttack）を従来の攻撃生成へ
+    // フォールバックさせる — demo 採点のテスト・E2E は v2.3 までの決定的挙動を維持する
+    return Promise.resolve([]);
+  }
   generateAttack(
     _themes: string[],
     targetConcepts: string[],

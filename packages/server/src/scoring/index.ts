@@ -122,6 +122,34 @@ export class ResilientScorer implements Scorer {
     return out.slice(0, n);
   }
 
+  async generateHypotheses(
+    themes: string[],
+    hints: { attack: string; score: number }[],
+    n: number,
+    avoid: string[],
+  ): Promise<string[]> {
+    // demo に推理は無いため demo 穴埋めはしない。空配列 = 呼び出し側が従来生成へフォールバック
+    if (!this.primary) return [];
+    try {
+      const raw = await this.primary.generateHypotheses(themes, hints, n, avoid);
+      const avoidSet = new Set(avoid.map((a) => a.trim()));
+      const seen = new Set<string>();
+      const out: string[] = [];
+      for (const c of raw) {
+        const t = c.trim().slice(0, MAX_CONCEPT_LENGTH);
+        if (t && !seen.has(t) && !avoidSet.has(t)) {
+          seen.add(t);
+          out.push(t);
+          if (out.length === n) break;
+        }
+      }
+      return out;
+    } catch (e) {
+      logPrimaryFailure('generateHypotheses', e);
+      return [];
+    }
+  }
+
   async generateAttack(
     themes: string[],
     targetConcepts: string[],

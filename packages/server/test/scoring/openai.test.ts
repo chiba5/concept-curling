@@ -199,6 +199,29 @@ describe('ResilientScorer', () => {
     expect(a).not.toBe('嵐');
     expect(a.trim().length).toBeGreaterThan(0);
   });
+  it('generateHypotheses: guesses を返し、手掛かり・禁止語がプロンプトへ入る。avoid は除外される', async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValue(openaiResponse({ guesses: ['枕', '宇宙', '禁止語'] }));
+    const s = new ResilientScorer(
+      new OpenAIScorer(opts(fetchFn as typeof fetch)),
+      new DemoScorer(),
+      { provider: 'openai', model: 'gpt-4o-mini' },
+    );
+    const g = await s.generateHypotheses(['夢'], [{ attack: '嵐', score: 60 }], 3, ['禁止語']);
+    expect(g).toEqual(['枕', '宇宙']);
+    const body = JSON.parse((fetchFn.mock.calls[0]?.[1] as RequestInit).body as string) as {
+      messages: { content: string }[];
+    };
+    const user = body.messages[1]?.content ?? '';
+    expect(user).toContain('嵐');
+    expect(user).toContain('60');
+    expect(user).toContain('禁止語');
+  });
+  it('generateHypotheses: primary 無し（demo 単独）は空配列（呼び出し側が従来生成へ落ちる）', async () => {
+    const s = new ResilientScorer(null, new DemoScorer(), { provider: 'demo', model: 'demo' });
+    await expect(s.generateHypotheses(['夢'], [], 3, [])).resolves.toEqual([]);
+  });
   it('generateAttack: 自分のライフと手掛かりがプロンプトへ渡り、自ライフ同一語の応答は demo に落ちる', async () => {
     const fetchFn = vi.fn().mockResolvedValue(openaiResponse({ attack: '書庫' }));
     const s = new ResilientScorer(

@@ -7,7 +7,7 @@ import type {
 } from '@concept-curling/shared';
 import * as engine from '../engine/index.js';
 import type { Scorer } from '../scoring/scorer.js';
-import { decideAttack, decidePick } from './cpu.js';
+import { decideAttack, decidePick, type SecretClue } from './cpu.js';
 
 export interface RoomCallbacks {
   onPublic(state: PublicState): void;
@@ -436,50 +436,46 @@ export class Room {
       );
       if (pick) await this.pickLives(seat, pick.selectedIndices, pick.secretIndexes);
     } else if (phase === 'battle' && st.attack === null) {
-      const targets = this.state.seats
-        .filter((s) => s.alive && s.seat !== seat)
-        .flatMap((s) => s.lives?.open ?? []);
-      // 攻撃の繰り返し防止: 過去の全攻撃・同ターンの提出済み攻撃・破壊済み概念・テーマ語に加え、
-      // 自席の残ライフ概念も避ける（攻撃は自分のライフにも当たるため、同一語だと確実に自滅する）
+      // 攻撃の繰り返し防止: 過去の全攻撃・同ターンの提出済み攻撃・破壊済み概念・テーマ語。
+      // 自席の残ライフ概念は decideAttack 側でも禁止語 + 実採点の自己検査で守られる
       const avoid = [
         ...new Set([
           ...this.state.turns.flatMap((t) => t.attacks.map((a) => a.concept)),
           ...this.state.seats.flatMap((s) => (s.attack !== null ? [s.attack] : [])),
           ...this.state.turns.flatMap((t) => t.destroys.map((d) => d.concept)),
           ...this.state.themes,
-          ...(st.lives?.open ?? []),
-          ...(st.lives?.secrets.filter((x) => !x.destroyed).map((x) => x.concept) ?? []),
         ]),
       ];
-      const intel = {
-        ownLives: [
-          ...(st.lives?.open ?? []),
-          ...(st.lives?.secrets.filter((x) => !x.destroyed).map((x) => x.concept) ?? []),
-        ],
+      const remaining = (s: (typeof this.state.seats)[number]): string[] => [
+        ...(s.lives?.open ?? []),
+        ...(s.lives?.secrets.filter((x) => !x.destroyed).map((x) => x.concept) ?? []),
+      ];
+      const ctx = {
+        themes: [...this.state.themes],
+        ownLives: remaining(st),
+        opponents: this.state.seats
+          .filter((s) => s.alive && s.seat !== seat)
+          .map((s) => ({
+            seat: s.seat,
+            name: s.name,
+            livesRemaining: remaining(s).length,
+            openLives: [...(s.lives?.open ?? [])],
+          })),
         clues: this.collectClues(seat),
-      };
-      let attack = await decideAttack(
-        this.scorer,
-        [...this.state.themes],
-        targets.length ? targets : [...this.state.themes],
         avoid,
-        intel,
-        this.state.config.destroyThreshold,
-      );
+        destroyThreshold: this.state.config.destroyThreshold,
+      };
+      let attack = await decideAttack(this.scorer, ctx);
       // 生成中に他 CPU が同じ攻撃を提出していたら 1 回だけ作り直す
       // （複数 CPU の cpuAct は並行して走るため、avoid 構築時点では互いの攻撃が見えない）
       const dupNow = (): boolean =>
         this.state.seats.some((s) => s.seat !== seat && s.attack === attack);
       if (dupNow()) {
         const latest = this.state.seats.flatMap((s) => (s.attack !== null ? [s.attack] : []));
-        attack = await decideAttack(
-          this.scorer,
-          [...this.state.themes],
-          targets.length ? targets : [...this.state.themes],
-          [...new Set([...avoid, ...latest, attack])],
-          intel,
-          this.state.config.destroyThreshold,
-        );
+        attack = await decideAttack(this.scorer, {
+          ...ctx,
+          avoid: [...new Set([...avoid, ...latest, attack])],
+        });
       }
       await this.attack(seat, attack);
     }
@@ -519,10 +515,8 @@ export class Room {
    * targetOrdinal は現在の open 数 + secrets の元位置で照合する（allSecret では常に安定。
    * legacy モードで open が減った場合は過去ターンの序数とずれ得るが、手掛かりはヒューリスティックとして許容）
    */
-  private collectClues(
-    seat: number,
-  ): { owner: string; life: string; hints: { attack: string; score: number }[] }[] {
-    const clues: { owner: string; life: string; hints: { attack: string; score: number }[] }[] = [];
+  private collectClues(seat: number): SecretClue[] {
+    const clues: SecretClue[] = [];
     for (const s of this.state.seats) {
       if (!s.alive || s.seat === seat || !s.lives) continue;
       const openLen = s.lives.open.length;
@@ -536,7 +530,8 @@ export class Room {
               d.targetSeat === s.seat && d.targetKind === 'secret' && d.targetOrdinal === ordinal,
           )
           .map((d) => ({ attack: d.atkConcept, score: d.score }));
-        if (hints.length) clues.push({ owner: s.name, life: `秘${ordinal + 1}`, hints });
+        if (hints.length)
+          clues.push({ seat: s.seat, owner: s.name, life: `秘${ordinal + 1}`, hints });
       });
     }
     return clues;
