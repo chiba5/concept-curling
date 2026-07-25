@@ -414,15 +414,26 @@ export class Room {
     if (!st || st.controller !== 'cpu' || !st.alive) return;
     const phase = this.state.phase;
     if (phase === 'submitting' && st.submittedConcepts === null) {
-      const avoid = [
+      const buildAvoid = (): string[] => [
         ...this.state.seats.flatMap((s) => s.submittedConcepts ?? []),
         ...this.state.themes,
       ];
-      const concepts = await this.scorer.generateConcepts(
+      let concepts = await this.scorer.generateConcepts(
         [...this.state.themes],
         this.state.config.conceptsPerPlayer,
-        avoid,
+        buildAvoid(),
       );
+      // 生成中に他 CPU が同じ概念を提出していたら 1 回だけ作り直す
+      // （複数 CPU の cpuAct は並行して走るため、avoid 構築時点では互いの提出が見えない。
+      //  本番で両 CPU が「苔」をライフにし 1 攻撃で同時破壊される事象を確認した対策）
+      const latest = new Set(this.state.seats.flatMap((s) => s.submittedConcepts ?? []));
+      if (concepts.some((c) => latest.has(c))) {
+        concepts = await this.scorer.generateConcepts(
+          [...this.state.themes],
+          this.state.config.conceptsPerPlayer,
+          [...new Set([...buildAvoid(), ...concepts])],
+        );
+      }
       await this.submitConcepts(seat, concepts);
     } else if (phase === 'picking' && st.lives === null) {
       const candidates = st.candidates ?? [];
