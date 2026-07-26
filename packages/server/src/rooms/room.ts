@@ -418,12 +418,13 @@ export class Room {
         ...this.state.seats.flatMap((s) => s.submittedConcepts ?? []),
         ...this.state.themes,
       ];
-      // 検品つき生成: 候補をテーマと実採点し、直接的すぎる「1 ホップ語」を作り直す
+      // 検品つき生成: 候補をテーマと実採点し、直接的すぎる「1 ホップ語」と選抜不能な「遠すぎ語」を作り直す
       let concepts = await generateInspectedConcepts(
         this.scorer,
         [...this.state.themes],
         this.state.config.conceptsPerPlayer,
         buildAvoid(),
+        this.state.config.pickMinTotal,
       );
       // 生成中に他 CPU が同じ概念を提出していたら 1 回だけ作り直す
       // （複数 CPU の cpuAct は並行して走るため、avoid 構築時点では互いの提出が見えない。
@@ -435,6 +436,7 @@ export class Room {
           [...this.state.themes],
           this.state.config.conceptsPerPlayer,
           [...new Set([...buildAvoid(), ...concepts])],
+          this.state.config.pickMinTotal,
         );
       }
       await this.submitConcepts(seat, concepts);

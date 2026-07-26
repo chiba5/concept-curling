@@ -108,6 +108,14 @@ describe('decideAttack（仮説駆動）', () => {
     });
     await expect(decideAttack(s, ctx())).resolves.toBe('A');
   });
+  it('テーマの言い換え（テーマと 85 以上）の仮説は使わず次の安全な仮説へ回す', async () => {
+    // A は誤差最小だがテーマ「星座」とほぼ同義 → 単調な必勝手なので禁止。B を採用
+    const s = stub({
+      hypos: ['A', 'B'],
+      table: { 'A|嵐': 60, 'B|嵐': 55, 'A|星座': 95, 'A|書庫': 20, 'B|書庫': 20 },
+    });
+    await expect(decideAttack(s, ctx())).resolves.toBe('B');
+  });
   it('誤差最小でも自ライフに破壊圏なら次の安全な仮説へ回す', async () => {
     const s = stub({
       hypos: ['A', 'B'],
@@ -164,9 +172,9 @@ describe('generateInspectedConcepts（ライフ候補の検品）', () => {
       generateAttack: vi.fn(),
     } as unknown as Scorer;
   };
-  it('全候補がテーマから遠ければ 1 回の生成でそのまま返す', async () => {
+  it('全候補が「遠すぎず近すぎず」なら 1 回の生成でそのまま返す', async () => {
     const s = stub([['甲', '乙', '丙']]);
-    await expect(generateInspectedConcepts(s, ['星座'], 3, [])).resolves.toEqual([
+    await expect(generateInspectedConcepts(s, ['星座'], 3, [], 20)).resolves.toEqual([
       '甲',
       '乙',
       '丙',
@@ -182,17 +190,32 @@ describe('generateInspectedConcepts（ライフ候補の検品）', () => {
       ],
       { '楽器|メロディー': 85 },
     );
-    const r = await generateInspectedConcepts(s, ['メロディー'], 2, []);
+    const r = await generateInspectedConcepts(s, ['メロディー'], 2, [], 20);
     expect(r).toEqual(['苔', '写本']);
     // 2 回目の生成には 1 回目の全候補が禁止語として渡る
     const second = (s.generateConcepts as ReturnType<typeof vi.fn>).mock.calls[1];
     expect(second?.[2]).toEqual(expect.arrayContaining(['楽器', '苔']));
   });
-  it('作り直しでも埋まらなければ「近すぎない順」で埋めて必ず n 個返す', async () => {
-    const table = { '楽器|音': 90, '楽譜|音': 80, 'リズム|音': 70 };
-    const s = stub([['楽器', '楽譜'], ['リズム']], table);
-    const r = await generateInspectedConcepts(s, ['音'], 2, []);
-    expect(r).toEqual(['リズム', '楽譜']); // 70 < 80 < 90 の近すぎない順
+  it('合計が pickMinTotal 未満の「遠すぎ語」（選抜不能）も作り直しで置き換える', async () => {
+    // 遠すぎ は合計 20 < 50 → 全候補がこれだと CPU が picking で即敗北するため検品で弾く
+    const table = {
+      '遠すぎ|星座': 10,
+      '遠すぎ|航海': 10,
+      '丁度|星座': 30,
+      '丁度|航海': 30,
+      '補充|星座': 25,
+      '補充|航海': 25,
+    };
+    const s = stub([['遠すぎ', '丁度'], ['補充']], table);
+    const r = await generateInspectedConcepts(s, ['星座', '航海'], 2, [], 50);
+    expect(r).toEqual(['丁度', '補充']);
+  });
+  it('作り直しでも埋まらなければ「選抜可能 → 近すぎない順」で埋めて必ず n 個返す', async () => {
+    // 全候補が不良: 熱い(90/選抜可) / 寒い(20/選抜不能) / 氷(25/選抜不能) → 選抜可を先頭に
+    const table = { '熱い|音': 90, '寒い|音': 20, '氷|音': 25 };
+    const s = stub([['熱い', '寒い'], ['氷']], table);
+    const r = await generateInspectedConcepts(s, ['音'], 2, [], 50);
+    expect(r).toEqual(['熱い', '寒い']);
     expect(r).toHaveLength(2);
   });
 });

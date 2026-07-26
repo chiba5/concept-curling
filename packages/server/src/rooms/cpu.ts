@@ -59,10 +59,13 @@ const LIFE_HOT_THRESHOLD = 60;
 
 /**
  * CPU のライフ候補生成 + 検品:
- * 生成した候補を各テーマと実採点し、どれかのテーマと LIFE_HOT_THRESHOLD 以上の「1 ホップ語」は
- * 1 回だけ作り直して置き換える（プロンプトの目標帯だけでは生成 LLM が守らないことを本番対局で
- * 確認済み — テーマ「メロディー」に対し リズム・楽器・楽譜 が出て 1 攻撃で 2 枚同時破壊された）。
- * それでも n 個に足りなければ「テーマに近すぎない順」で埋めて必ず n 個返す
+ * 生成した候補を各テーマと実採点し、不良候補を 1 回だけ作り直して置き換える。
+ * 不良 = どれかのテーマと LIFE_HOT_THRESHOLD 以上の「1 ホップ語」（即当てられる。テーマ
+ * 「メロディー」に リズム・楽器・楽譜 が出て 1 攻撃 2 枚破壊を本番で確認）、または合計が
+ * pickMinTotal 未満の「遠すぎ語」（選抜不能。全滅すると CPU が picking で即敗北する事象を
+ * 本番で確認 — プロンプトの目標帯だけでは生成 LLM が守らない）。
+ * 実採点は LRU キャッシュされるため、ここでの判定は本選抜（applyScores）と同じ値になる。
+ * それでも n 個に足りなければ「選抜可能 → テーマに近すぎない順」で埋めて必ず n 個返す
  * （n 個未満はエンジンが提出を拒否してゲームが submitting で止まるため）。
  */
 export async function generateInspectedConcepts(
@@ -70,12 +73,13 @@ export async function generateInspectedConcepts(
   themes: string[],
   n: number,
   avoid: string[],
+  pickMinTotal: number,
 ): Promise<string[]> {
-  const heat = new Map<string, number>();
+  const heat = new Map<string, { max: number; total: number }>();
   const measure = async (words: string[]): Promise<void> => {
     const fresh = words.filter((w) => !heat.has(w));
     if (!themes.length || !fresh.length) {
-      fresh.forEach((w) => heat.set(w, 0));
+      fresh.forEach((w) => heat.set(w, { max: 0, total: 0 }));
       return;
     }
     const scores = await scorer.scorePairs(
@@ -83,26 +87,39 @@ export async function generateInspectedConcepts(
     );
     fresh.forEach((w, wi) => {
       const slice = scores.slice(wi * themes.length, (wi + 1) * themes.length);
-      heat.set(w, Math.max(...slice.map((s) => s.score)));
+      heat.set(w, {
+        max: Math.max(...slice.map((s) => s.score)),
+        total: slice.reduce((acc, s) => acc + s.score, 0),
+      });
     });
   };
-  const cool = (w: string): boolean => (heat.get(w) ?? 100) < LIFE_HOT_THRESHOLD;
+  const good = (w: string): boolean => {
+    const h = heat.get(w);
+    return !!h && h.max < LIFE_HOT_THRESHOLD && h.total >= pickMinTotal;
+  };
 
   const first = await scorer.generateConcepts(themes, n, avoid);
   await measure(first);
-  let ok = first.filter(cool);
+  let ok = first.filter(good);
   if (ok.length >= n) return ok.slice(0, n);
 
   const second = (
     await scorer.generateConcepts(themes, n, [...new Set([...avoid, ...first])])
   ).filter((w) => !first.includes(w));
   await measure(second);
-  ok = [...ok, ...second.filter(cool)];
+  ok = [...ok, ...second.filter(good)];
   if (ok.length >= n) return ok.slice(0, n);
 
+  // 埋め順: 選抜可能（total >= pickMinTotal）を優先し、その中ではテーマに近すぎない順
   const leftovers = [...first, ...second]
     .filter((w) => !ok.includes(w))
-    .sort((a, b) => (heat.get(a) ?? 100) - (heat.get(b) ?? 100));
+    .sort((a, b) => {
+      const ha = heat.get(a) ?? { max: 100, total: 0 };
+      const hb = heat.get(b) ?? { max: 100, total: 0 };
+      const pa = ha.total >= pickMinTotal ? 0 : 1;
+      const pb = hb.total >= pickMinTotal ? 0 : 1;
+      return pa - pb || ha.max - hb.max;
+    });
   return [...ok, ...leftovers].slice(0, n);
 }
 
@@ -137,6 +154,11 @@ const VALIDATE_RECENT = 6;
 const HYPOTHESES = 6;
 /** フォールバック生成の最大試行回数 */
 const FALLBACK_TRIES = 3;
+/** テーマとこれ以上の関連度の攻撃は「テーマの言い換え」として禁止する閾値。
+ * エンジンはテーマの完全一致しか弾けず、本番でテーマ「バイク」への攻撃「オートバイ」が
+ * 2 枚同時破壊する開幕が成立した — 全員のライフがテーマ関連を強制される（pickMinTotal）以上、
+ * テーマ言い換え攻撃は単調な必勝手になるため CPU には使わせない */
+const THEME_NEAR_LIMIT = 85;
 
 /**
  * CPU の攻撃決定（仮説駆動）:
@@ -152,22 +174,29 @@ export async function decideAttack(scorer: Scorer, ctx: AttackContext): Promise<
   const avoidSet = new Set([...ctx.avoid, ...ctx.ownLives].map((a) => a.trim()));
   const normalize = (w: string): string => w.trim().slice(0, MAX_CONCEPT_LENGTH);
 
-  /** 各語の自滅リスク（自ライフとの最大関連度）を 1 バッチで採点する */
-  const selfRisks = async (words: string[]): Promise<Map<string, number>> => {
-    const m = new Map<string, number>();
-    if (!ctx.ownLives.length || !words.length) {
-      words.forEach((w) => m.set(w, 0));
+  /** 各語のリスク（self=自ライフとの最大関連度 / theme=テーマとの最大関連度）を 1 バッチで採点する */
+  const risks = async (words: string[]): Promise<Map<string, { self: number; theme: number }>> => {
+    const m = new Map<string, { self: number; theme: number }>();
+    const bases = [...ctx.ownLives, ...ctx.themes];
+    if (!bases.length || !words.length) {
+      words.forEach((w) => m.set(w, { self: 0, theme: 0 }));
       return m;
     }
-    const scores = await scorer.scorePairs(
-      words.flatMap((w) => ctx.ownLives.map((b) => ({ a: w, b }))),
-    );
+    const scores = await scorer.scorePairs(words.flatMap((w) => bases.map((b) => ({ a: w, b }))));
     words.forEach((w, wi) => {
-      const slice = scores.slice(wi * ctx.ownLives.length, (wi + 1) * ctx.ownLives.length);
-      m.set(w, Math.max(...slice.map((s) => s.score)));
+      const slice = scores.slice(wi * bases.length, (wi + 1) * bases.length);
+      const selfSlice = slice.slice(0, ctx.ownLives.length);
+      const themeSlice = slice.slice(ctx.ownLives.length);
+      m.set(w, {
+        self: Math.max(0, ...selfSlice.map((s) => s.score)),
+        theme: Math.max(0, ...themeSlice.map((s) => s.score)),
+      });
     });
     return m;
   };
+  /** 安全 = 自滅圏でなく、テーマの言い換えでもない */
+  const isSafe = (r: { self: number; theme: number } | undefined): boolean =>
+    !!r && r.self < ctx.destroyThreshold && r.theme < THEME_NEAR_LIMIT;
 
   // 1) 主標的と、その秘ライフのうち最も手掛かりが「惜しい」もの
   const target = [...ctx.opponents].sort(
@@ -206,12 +235,12 @@ export async function decideAttack(scorer: Scorer, ctx: AttackContext): Promise<
 
   // 4) 安全な仮説のうち最有力
   if (ranked.length) {
-    const risks = await selfRisks(ranked);
-    const safe = ranked.find((h) => (risks.get(h) ?? 100) < ctx.destroyThreshold);
+    const r = await risks(ranked);
+    const safe = ranked.find((h) => isSafe(r.get(h)));
     if (safe) return safe;
   }
 
-  // 5) フォールバック: 従来生成 → 中立プール。破壊圏の語は決して返さない
+  // 5) フォールバック: 従来生成 → 中立プール。破壊圏・テーマ言い換えの語は決して返さない
   const legacyIntel = { ownLives: ctx.ownLives, clues: ctx.clues };
   const legacyTargets = target?.openLives.length ? target.openLives : ctx.themes;
   const tried: string[] = [];
@@ -220,12 +249,16 @@ export async function decideAttack(scorer: Scorer, ctx: AttackContext): Promise<
       await scorer.generateAttack(ctx.themes, legacyTargets, [...avoidSet, ...tried], legacyIntel),
     );
     if (!a || avoidSet.has(a) || tried.includes(a)) continue;
-    const r = await selfRisks([a]);
-    if ((r.get(a) ?? 100) < ctx.destroyThreshold) return a;
+    const r = await risks([a]);
+    if (isSafe(r.get(a))) return a;
     tried.push(a);
   }
   const neutral = CONCEPT_POOL.filter((c) => !avoidSet.has(c) && !tried.includes(c));
   const pool = neutral.length ? neutral : tried.length ? tried : ['静物画'];
-  const risks = await selfRisks(pool);
-  return [...pool].sort((p, q) => (risks.get(p) ?? 100) - (risks.get(q) ?? 100))[0] ?? '静物画';
+  const poolRisks = await risks(pool);
+  return (
+    [...pool].sort(
+      (p, q) => (poolRisks.get(p)?.self ?? 100) - (poolRisks.get(q)?.self ?? 100),
+    )[0] ?? '静物画'
+  );
 }
