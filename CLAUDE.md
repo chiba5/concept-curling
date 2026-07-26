@@ -36,7 +36,7 @@ packages/client/     React 19 + Vite SPA（react-router、useReducer + Context�
 - プレイヤー数・提出概念数・最大ライフ・破壊閾値・選抜下限・テーマ数などは `GameConfig` としてルーム作成時にパラメータ化されている（2〜6 人、既定 3 人）
 - スコアの向き（v2.1 で反転）: **0 = 無関係 / 100 = 完全一致**。実装・UI 文言とも旧 v2（0=深い関連/100=浅い）とは逆なので混同注意
 - フェーズ: `waiting → theming → submitting → picking → battle → finished`
-- 既定値（v2.2 で調整）: 提出概念数 5 / 最大ライフ 3 / テーマ数 2 / 選抜下限（合計）`pickMinTotal` 30 / 破壊閾値 `destroyThreshold` 70
+- 既定値（v2.5 で調整）: 提出概念数 5 / 最大ライフ 3 / テーマ数 2 / 選抜下限（合計）`pickMinTotal` 50（推奨式 = テーマ数 × 25。下限 30 ではテーマ無関係語が実質無敵ライフになるため引き上げ）/ 破壊閾値 `destroyThreshold` 70
 - 破壊判定（v2.2 で >= に変更）: 攻撃とライフの関連度が `destroyThreshold` **以上**（score >= destroyThreshold）で破壊。選抜判定: 全テーマとの関連度合計が `pickMinTotal` **以上**（total >= pickMinTotal）ならライフにできる
 - SECRET（非公開ライフ）は既定で全ライフが SECRET（`allSecret: true`）。破壊時に公開、`finished` で全 SECRET を公開
 - 切断は 60 秒の猶予後に CPU が可逆的に代打する。ソロ試遊は「ソロで試す」1 クリックで CPU 2 体と即対戦

@@ -13,15 +13,17 @@ export const DEFAULT_CONFIG: GameConfig = {
   playerCount: 3,
   conceptsPerPlayer: 5,
   maxLives: 3,
-  pickMinTotal: 30,
+  pickMinTotal: 50,
   destroyThreshold: 70,
   allSecret: true,
   themes: { count: 2, mode: 'llm' },
   graceSeconds: 60,
 };
 
-/** テーマ数から pickMinTotal の推奨初期値を出す（UI 用） */
-export const suggestedPickMinTotal = (themeCount: number): number => themeCount * 15;
+/** テーマ数から pickMinTotal の推奨初期値を出す（UI 用）。
+ * v2.5 で ×15 → ×25 に引き上げ: 下限が低いとテーマ無関係の語（例: MCP）が実質無敵のライフになり、
+ * 推理ゲームとして成立しないことを本番対局で確認した */
+export const suggestedPickMinTotal = (themeCount: number): number => themeCount * 25;
 
 export const MAX_CONCEPT_LENGTH = 20;
 export const MAX_NAME_LENGTH = 12;

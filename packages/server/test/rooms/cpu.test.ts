@@ -1,6 +1,6 @@
 import type { ScoredCandidate } from '@concept-curling/shared';
 import { describe, expect, it, vi } from 'vitest';
-import { decideAttack, decidePick } from '../../src/rooms/cpu.js';
+import { decideAttack, decidePick, generateInspectedConcepts } from '../../src/rooms/cpu.js';
 import type { Scorer } from '../../src/scoring/scorer.js';
 
 const cand = (concept: string, total: number, pickable: boolean): ScoredCandidate => ({
@@ -147,6 +147,53 @@ describe('decideAttack（仮説駆動）', () => {
     const a = await decideAttack(s, ctx());
     expect(['危険A', '危険B', '危険C']).not.toContain(a);
     expect(a.trim().length).toBeGreaterThan(0);
+  });
+});
+
+describe('generateInspectedConcepts（ライフ候補の検品）', () => {
+  /** 生成は呼び出し回ごとに gen[i] を返し、採点はテーブル（未定義ペアは 25 = 遠い）で返すスタブ */
+  const stub = (gen: string[][], table: Record<string, number> = {}): Scorer => {
+    let call = 0;
+    return {
+      generateConcepts: vi.fn(() => Promise.resolve(gen[Math.min(call++, gen.length - 1)] ?? [])),
+      scorePairs: vi.fn((pairs: { a: string; b: string }[]) =>
+        Promise.resolve(pairs.map((p) => ({ score: table[`${p.a}|${p.b}`] ?? 25, reason: 'r' }))),
+      ),
+      generateThemes: vi.fn(),
+      generateHypotheses: vi.fn(),
+      generateAttack: vi.fn(),
+    } as unknown as Scorer;
+  };
+  it('全候補がテーマから遠ければ 1 回の生成でそのまま返す', async () => {
+    const s = stub([['甲', '乙', '丙']]);
+    await expect(generateInspectedConcepts(s, ['星座'], 3, [])).resolves.toEqual([
+      '甲',
+      '乙',
+      '丙',
+    ]);
+    expect(s.generateConcepts).toHaveBeenCalledTimes(1);
+  });
+  it('テーマと 60 以上の「1 ホップ語」は作り直しで置き換える', async () => {
+    // 楽器 はテーマ「メロディー」と 85 → 検品で弾き、2 回目の生成から補充する
+    const s = stub(
+      [
+        ['楽器', '苔'],
+        ['写本', '塩田'],
+      ],
+      { '楽器|メロディー': 85 },
+    );
+    const r = await generateInspectedConcepts(s, ['メロディー'], 2, []);
+    expect(r).toEqual(['苔', '写本']);
+    // 2 回目の生成には 1 回目の全候補が禁止語として渡る
+    const second = (s.generateConcepts as ReturnType<typeof vi.fn>).mock.calls[1];
+    expect(second?.[2]).toEqual(expect.arrayContaining(['楽器', '苔']));
+  });
+  it('作り直しでも埋まらなければ「近すぎない順」で埋めて必ず n 個返す', async () => {
+    const table = { '楽器|音': 90, '楽譜|音': 80, 'リズム|音': 70 };
+    const s = stub([['楽器', '楽譜'], ['リズム']], table);
+    const r = await generateInspectedConcepts(s, ['音'], 2, []);
+    expect(r).toEqual(['リズム', '楽譜']); // 70 < 80 < 90 の近すぎない順
+    expect(r).toHaveLength(2);
   });
 });
 

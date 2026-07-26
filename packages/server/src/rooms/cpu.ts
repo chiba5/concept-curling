@@ -54,6 +54,58 @@ export function decidePick(
   return { selectedIndices, secretIndexes };
 }
 
+/** ライフ候補が「1 ホップ語」（どれかのテーマと直接的すぎて即当てられる）と判定する閾値 */
+const LIFE_HOT_THRESHOLD = 60;
+
+/**
+ * CPU のライフ候補生成 + 検品:
+ * 生成した候補を各テーマと実採点し、どれかのテーマと LIFE_HOT_THRESHOLD 以上の「1 ホップ語」は
+ * 1 回だけ作り直して置き換える（プロンプトの目標帯だけでは生成 LLM が守らないことを本番対局で
+ * 確認済み — テーマ「メロディー」に対し リズム・楽器・楽譜 が出て 1 攻撃で 2 枚同時破壊された）。
+ * それでも n 個に足りなければ「テーマに近すぎない順」で埋めて必ず n 個返す
+ * （n 個未満はエンジンが提出を拒否してゲームが submitting で止まるため）。
+ */
+export async function generateInspectedConcepts(
+  scorer: Scorer,
+  themes: string[],
+  n: number,
+  avoid: string[],
+): Promise<string[]> {
+  const heat = new Map<string, number>();
+  const measure = async (words: string[]): Promise<void> => {
+    const fresh = words.filter((w) => !heat.has(w));
+    if (!themes.length || !fresh.length) {
+      fresh.forEach((w) => heat.set(w, 0));
+      return;
+    }
+    const scores = await scorer.scorePairs(
+      fresh.flatMap((w) => themes.map((t) => ({ a: w, b: t }))),
+    );
+    fresh.forEach((w, wi) => {
+      const slice = scores.slice(wi * themes.length, (wi + 1) * themes.length);
+      heat.set(w, Math.max(...slice.map((s) => s.score)));
+    });
+  };
+  const cool = (w: string): boolean => (heat.get(w) ?? 100) < LIFE_HOT_THRESHOLD;
+
+  const first = await scorer.generateConcepts(themes, n, avoid);
+  await measure(first);
+  let ok = first.filter(cool);
+  if (ok.length >= n) return ok.slice(0, n);
+
+  const second = (
+    await scorer.generateConcepts(themes, n, [...new Set([...avoid, ...first])])
+  ).filter((w) => !first.includes(w));
+  await measure(second);
+  ok = [...ok, ...second.filter(cool)];
+  if (ok.length >= n) return ok.slice(0, n);
+
+  const leftovers = [...first, ...second]
+    .filter((w) => !ok.includes(w))
+    .sort((a, b) => (heat.get(a) ?? 100) - (heat.get(b) ?? 100));
+  return [...ok, ...leftovers].slice(0, n);
+}
+
 /** 相手の秘ライフ 1 枚ぶんの手掛かり: 過去の攻撃語との関連度（判定録から逆算できる情報のみ） */
 export interface SecretClue {
   seat: number;

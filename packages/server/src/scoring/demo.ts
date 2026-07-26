@@ -56,7 +56,7 @@ export class DemoScorer implements Scorer {
     return Promise.resolve(
       pairs.map(({ a, b }) => {
         // 生の bigram Jaccard 距離（0..100、大きいほど無関係）を反転して関連度に変換し [25..85] にリマップする。
-        // 無関係語 25×2 テーマ = 50 >= 既定 pickMinTotal(30) → キー無しでも選抜可能、
+        // 無関係語 25×2 テーマ = 50 >= 既定 pickMinTotal(50) → キー無しでも選抜可能（境界ちょうど）、
         // 完全一致 85 は既定 destroyThreshold(70) 以上 → 破壊、無関係 25 は 70 未満で安全。
         const v = 85 - Math.round(demoScore(a, b) * 0.6);
         return { score: v, reason: '簡易採点' };

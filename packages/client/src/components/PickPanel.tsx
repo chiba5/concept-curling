@@ -9,7 +9,7 @@ export function PickPanel() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const maxLives = pub?.config.maxLives ?? 3;
-  const limit = pub?.config.pickMinTotal ?? 30;
+  const limit = pub?.config.pickMinTotal ?? 50;
   const allSecret = pub?.config.allSecret ?? true;
   const candidates = priv?.candidates ?? [];
   const me = pub?.players.find((p) => p.seat === priv?.seat);

@@ -56,12 +56,12 @@ describe('applyScores', () => {
       scores: [60, 60],
       reasons: ['理由A', '理由B'],
       total: 120,
-      pickable: true, // 120 >= 30 (既定 pickMinTotal)
+      pickable: true, // 120 >= 50 (既定 pickMinTotal)
     });
   });
   it('total が pickMinTotal 未満なら pickable=false', () => {
     let s = unwrap(submitConcepts(inSubmitting(), 1, FIVE));
-    s = unwrap(applyScores(s, 1, table5(10))); // total 20 < 30（既定 pickMinTotal）
+    s = unwrap(applyScores(s, 1, table5(10))); // total 20 < 50（既定 pickMinTotal）
     expect(s.seats[0]?.candidates?.every((c) => !c.pickable)).toBe(true);
   });
   it('pickable が 0 件の席は即敗北（alive=false）', () => {

@@ -7,7 +7,7 @@ import type {
 } from '@concept-curling/shared';
 import * as engine from '../engine/index.js';
 import type { Scorer } from '../scoring/scorer.js';
-import { decideAttack, decidePick, type SecretClue } from './cpu.js';
+import { decideAttack, decidePick, generateInspectedConcepts, type SecretClue } from './cpu.js';
 
 export interface RoomCallbacks {
   onPublic(state: PublicState): void;
@@ -418,7 +418,9 @@ export class Room {
         ...this.state.seats.flatMap((s) => s.submittedConcepts ?? []),
         ...this.state.themes,
       ];
-      let concepts = await this.scorer.generateConcepts(
+      // 検品つき生成: 候補をテーマと実採点し、直接的すぎる「1 ホップ語」を作り直す
+      let concepts = await generateInspectedConcepts(
+        this.scorer,
         [...this.state.themes],
         this.state.config.conceptsPerPlayer,
         buildAvoid(),
@@ -428,7 +430,8 @@ export class Room {
       //  本番で両 CPU が「苔」をライフにし 1 攻撃で同時破壊される事象を確認した対策）
       const latest = new Set(this.state.seats.flatMap((s) => s.submittedConcepts ?? []));
       if (concepts.some((c) => latest.has(c))) {
-        concepts = await this.scorer.generateConcepts(
+        concepts = await generateInspectedConcepts(
+          this.scorer,
           [...this.state.themes],
           this.state.config.conceptsPerPlayer,
           [...new Set([...buildAvoid(), ...concepts])],
