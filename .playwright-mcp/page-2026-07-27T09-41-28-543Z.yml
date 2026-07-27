@@ -1,0 +1,28 @@
+- generic [ref=e34]:
+  - banner [ref=e35]:
+    - generic [ref=e36]:
+      - generic [ref=e37]: 概
+      - text: 概念カーリング
+    - generic [ref=e38]: NEYD6Q — 概念提出
+  - main "ゲーム" [ref=e39]:
+    - paragraph [ref=e55]:
+      - text: 野球
+      - generic [ref=e56]: ×虹
+    - generic [ref=e40]:
+      - generic [ref=e41]: 検証者P
+      - generic [ref=e44]:
+        - generic [ref=e45]: CPU・北
+        - generic [ref=e47]: CPU
+      - generic [ref=e48]:
+        - generic [ref=e49]: CPU・南
+        - generic [ref=e51]: CPU
+    - generic [ref=e57]:
+      - generic [ref=e58]: テーマと「中距離」の概念を 5 個（非公開）
+      - textbox "概念 1" [ref=e60]
+      - textbox "概念 2" [ref=e62]
+      - textbox "概念 3" [ref=e64]
+      - textbox "概念 4" [ref=e66]
+      - textbox "概念 5" [ref=e68]
+      - alert [ref=e69]
+      - button "提出" [ref=e70] [cursor=pointer]
+    - button "退室してロビーへ" [ref=e54] [cursor=pointer]

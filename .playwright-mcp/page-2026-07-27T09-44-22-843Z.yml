@@ -1,0 +1,68 @@
+- generic [ref=e34]:
+  - banner [ref=e35]:
+    - generic [ref=e36]:
+      - generic [ref=e37]: 概
+      - text: 概念カーリング
+    - generic [ref=e38]: NEYD6Q — 第2回合
+  - main "ゲーム" [ref=e39]:
+    - paragraph [ref=e55]:
+      - text: 野球
+      - generic [ref=e56]: ×虹
+    - generic [ref=e40]:
+      - generic [ref=e41]:
+        - generic [ref=e42]: 検証者P
+        - generic [ref=e115]: 秘
+      - generic [ref=e44]:
+        - generic [ref=e45]: CPU・北
+        - generic [ref=e73]: 脱落
+        - generic [ref=e47]: CPU
+      - generic [ref=e48]:
+        - generic [ref=e49]:
+          - generic [ref=e50]: CPU・南
+          - generic [ref=e125]: 済
+        - generic [ref=e75]: 秘秘秘
+        - generic [ref=e51]: CPU
+    - generic [ref=e126]:
+      - generic [ref=e127]: 攻撃概念 — 相手ライフとの関連度が 70 以上なら破壊
+      - textbox "ことばを置く" [ref=e129]
+      - alert [ref=e130]
+      - button "投" [ref=e131] [cursor=pointer]
+      - paragraph [ref=e132]: "自分のライフ: 秘「虹」（自分の攻撃は自分のライフにも当たります）"
+    - generic [ref=e133]:
+      - generic [ref=e134]: 判定録
+      - generic [ref=e136]:
+        - generic [ref=e137]: 第1回合
+        - table [ref=e140]:
+          - rowgroup [ref=e141]:
+            - row [ref=e142]:
+              - columnheader "攻撃 ＼ ライフ" [ref=e143]
+              - columnheader "秘1（検証者P）" [ref=e144]:
+                - text: 秘1
+                - generic [ref=e145]: （検証者P）
+              - columnheader "秘1（CPU・南）" [ref=e146]:
+                - text: 秘1
+                - generic [ref=e147]: （CPU・南）
+              - columnheader "秘2（CPU・南）" [ref=e148]:
+                - text: 秘2
+                - generic [ref=e149]: （CPU・南）
+              - columnheader "秘3（CPU・南）" [ref=e150]:
+                - text: 秘3
+                - generic [ref=e151]: （CPU・南）
+          - rowgroup [ref=e152]:
+            - row [ref=e153]:
+              - cell "ホームラン（検証者P）" [ref=e154]:
+                - text: ホームラン
+                - generic [ref=e155]: （検証者P）
+              - cell "10" [ref=e156]
+              - cell "15" [ref=e157]
+              - cell "20" [ref=e158]
+              - cell "10" [ref=e159]
+            - row [ref=e160]:
+              - cell "アーチ（CPU・南）" [ref=e161]:
+                - text: アーチ
+                - generic [ref=e162]: （CPU・南）
+              - cell "30" [ref=e163]
+              - cell "20" [ref=e164]
+              - cell "20" [ref=e165]
+              - cell "20" [ref=e166]
+    - button "退室してロビーへ" [ref=e54] [cursor=pointer]

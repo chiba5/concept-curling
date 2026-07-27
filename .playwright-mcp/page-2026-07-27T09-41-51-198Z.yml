@@ -1,0 +1,24 @@
+- generic [ref=e34]:
+  - banner [ref=e35]:
+    - generic [ref=e36]:
+      - generic [ref=e37]: 概
+      - text: 概念カーリング
+    - generic [ref=e38]: NEYD6Q — 概念提出
+  - main "ゲーム" [ref=e39]:
+    - paragraph [ref=e55]:
+      - text: 野球
+      - generic [ref=e56]: ×虹
+    - generic [ref=e40]:
+      - generic [ref=e42]:
+        - generic [ref=e43]: 検証者P
+        - generic [ref=e71]: 済
+      - generic [ref=e44]:
+        - generic [ref=e45]: CPU・北
+        - generic [ref=e47]: CPU
+      - generic [ref=e48]:
+        - generic [ref=e49]: CPU・南
+        - generic [ref=e51]: CPU
+    - generic [ref=e57]:
+      - generic [ref=e58]: 提出済み — 採点を待っています
+      - paragraph [ref=e72]: ピアノ、灯台、祭り、虹、辞書
+    - button "退室してロビーへ" [ref=e54] [cursor=pointer]
