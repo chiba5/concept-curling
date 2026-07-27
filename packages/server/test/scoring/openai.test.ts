@@ -47,6 +47,33 @@ describe('OpenAIScorer', () => {
     await expect(s.scorePairs([{ a: 'x', b: 'y' }])).rejects.toThrow('OpenAI HTTP 429');
     expect(fetchFn).toHaveBeenCalledTimes(2);
   });
+  it('HTTP 400 は temperature を外して即やり直す（GPT-5 系の reasoning 互換）', async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('unsupported temperature', { status: 400 }))
+      .mockResolvedValueOnce(openaiResponse({ pairs: [{ i: 0, score: 50, reason: 'r' }] }));
+    const s = new OpenAIScorer(opts(fetchFn as typeof fetch));
+    const r = await s.scorePairs([{ a: 'x', b: 'y' }]);
+    expect(r.get(0)?.score).toBe(50);
+    const first = JSON.parse((fetchFn.mock.calls[0]?.[1] as RequestInit).body as string);
+    const second = JSON.parse((fetchFn.mock.calls[1]?.[1] as RequestInit).body as string);
+    expect(first.temperature).toBe(0.2);
+    expect(second.temperature).toBeUndefined();
+  });
+  it('採点は model・生成系は generationModel を使う（二段構え）', async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(openaiResponse({ pairs: [{ i: 0, score: 50, reason: 'r' }] }))
+      .mockResolvedValueOnce(openaiResponse({ themes: ['星座', '航海'] }));
+    const s = new OpenAIScorer({ ...opts(fetchFn as typeof fetch), generationModel: 'gen-model' });
+    await s.scorePairs([{ a: 'x', b: 'y' }]);
+    await s.generateThemes(2);
+    const bodies = fetchFn.mock.calls.map((c) =>
+      JSON.parse((c[1] as RequestInit).body as string),
+    ) as { model: string }[];
+    expect(bodies[0]?.model).toBe('gpt-4o-mini');
+    expect(bodies[1]?.model).toBe('gen-model');
+  });
   it('generateThemes: themes 配列を返し、形が壊れていれば throw', async () => {
     const good = new OpenAIScorer(
       opts(vi.fn().mockResolvedValue(openaiResponse({ themes: ['星座', '航海'] })) as typeof fetch),

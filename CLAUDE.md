@@ -61,6 +61,7 @@ npm run e2e     # Playwright（ソロ導線・複数人対戦の完走を実ブ�
 - **express は 4 系固定**（`app.get('*')` と `@types/express` が express 5 で壊れる）。安易な npm update 禁止
 - root `package.json` の `overrides.vite: ^6` は vitest 3 が vite 7 を取り得るための固定。vitest 4 移行時に外す
 - スコアの向きは **0 = 無関係 / 100 = 完全一致**（v2.1 で反転済み）。実装・UI 文言両方でこの向きを守る
+- LLM は二段構え（2026-07-27〜）: **採点 = gpt-5.4-nano ／ 生成・推理 = gpt-5.6-luna**（`createScorerFromEnv` の既定値。env `OPENAI_MODEL` / `OPENAI_GENERATION_MODEL` で上書き可）。価格等の腐る事実は `vault/reference/volatile-facts.md` を参照
 - `.env` は Read も Edit もしない（グローバル CLAUDE.md の方針）
 
 ---

@@ -177,7 +177,10 @@ export class ResilientScorer implements Scorer {
 export interface ScorerEnv {
   SCORING_PROVIDER?: string;
   OPENAI_API_KEY?: string;
+  /** 採点用モデル（既定 gpt-5.4-nano — 量が多いので現行最安クラス） */
   OPENAI_MODEL?: string;
+  /** 生成・推理用モデル（既定 gpt-5.6-luna — テーマ・概念・仮説・攻撃の質を担う） */
+  OPENAI_GENERATION_MODEL?: string;
   OPENAI_TEMPERATURE?: string;
 }
 
@@ -187,13 +190,15 @@ export function createScorerFromEnv(env: ScorerEnv): ResilientScorer {
     return t ? t : undefined;
   };
   const provider = clean(env.SCORING_PROVIDER) ?? (clean(env.OPENAI_API_KEY) ? 'openai' : 'demo');
-  const model = clean(env.OPENAI_MODEL) ?? 'gpt-4o-mini';
+  const model = clean(env.OPENAI_MODEL) ?? 'gpt-5.4-nano';
+  const generationModel = clean(env.OPENAI_GENERATION_MODEL) ?? 'gpt-5.6-luna';
   const apiKey = clean(env.OPENAI_API_KEY);
   if (provider === 'openai' && apiKey) {
     const parsed = Number.parseFloat(clean(env.OPENAI_TEMPERATURE) ?? '0.2');
     const primary = new OpenAIScorer({
       apiKey,
       model,
+      generationModel,
       temperature: Number.isFinite(parsed) ? parsed : 0.2,
     });
     return new ResilientScorer(primary, new DemoScorer(), { provider: 'openai', model });

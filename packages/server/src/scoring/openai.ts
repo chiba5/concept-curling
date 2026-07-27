@@ -2,7 +2,10 @@ import { clampScore, type PairScore } from './scorer.js';
 
 export interface OpenAIOptions {
   apiKey: string;
+  /** 採点用モデル（呼び出し回数・トークン量が多い側。安いモデルを充てる） */
   model: string;
+  /** 生成・推理用モデル（テーマ・概念・仮説・攻撃。賢いモデルを充てる）。省略時は model と同一 */
+  generationModel?: string;
   temperature: number;
   timeoutMs?: number;
   fetchFn?: typeof fetch;
@@ -117,9 +120,13 @@ export class OpenAIScorer {
     system: string,
     user: string,
     temperature = this.opts.temperature,
+    model = this.opts.model,
   ): Promise<unknown> {
-    const { apiKey, model, timeoutMs = 15000, fetchFn = fetch } = this.opts;
+    const { apiKey, timeoutMs = 15000, fetchFn = fetch } = this.opts;
     let lastError: unknown;
+    // GPT-5 系は reasoning 有効時に temperature を 400 で拒否する。互換性が読めないため、
+    // 400 が返ったら temperature を外して即やり直す（この互換リトライは試行回数に数えない）
+    let includeTemperature = true;
     for (let attempt = 0; attempt < 2; attempt++) {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -129,7 +136,7 @@ export class OpenAIScorer {
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
           body: JSON.stringify({
             model,
-            temperature,
+            ...(includeTemperature ? { temperature } : {}),
             response_format: { type: 'json_object' },
             messages: [
               { role: 'system', content: system },
@@ -138,7 +145,14 @@ export class OpenAIScorer {
           }),
           signal: ctrl.signal,
         });
-        if (!res.ok) throw new Error(`OpenAI HTTP ${res.status}`);
+        if (!res.ok) {
+          if (res.status === 400 && includeTemperature) {
+            includeTemperature = false;
+            attempt--;
+            throw new Error('OpenAI HTTP 400 (retrying without temperature)');
+          }
+          throw new Error(`OpenAI HTTP ${res.status}`);
+        }
         const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
         return JSON.parse(data.choices?.[0]?.message?.content ?? '{}');
       } catch (e) {
@@ -148,6 +162,16 @@ export class OpenAIScorer {
       }
     }
     throw lastError instanceof Error ? lastError : new Error(String(lastError));
+  }
+
+  /** 生成・推理系の呼び出し（generationModel + 高温） */
+  private generateJson(system: string, user: string): Promise<unknown> {
+    return this.callJson(
+      system,
+      user,
+      GENERATION_TEMPERATURE,
+      this.opts.generationModel ?? this.opts.model,
+    );
   }
 
   /** 添字→PairScore の疎な Map を返す（欠損の穴埋めは呼び出し側） */
@@ -196,7 +220,7 @@ ${JSON.stringify(pairs.map((p, i) => ({ i, a: p.a, b: p.b })))}
 - 互いに離れすぎず近すぎない中距離感。ジャンル名そのものは使わない。
 - 最近出したテーマ（避けること。同じ語も似た語も不可): ${JSON.stringify(this.recentThemes)}
 出力: {"themes":["テーマ1", ...]}`;
-    const json = (await this.callJson(THEME_SYSTEM, user, GENERATION_TEMPERATURE)) as {
+    const json = (await this.generateJson(THEME_SYSTEM, user)) as {
       themes?: unknown;
     };
     const arr = Array.isArray(json.themes) ? json.themes : [];
@@ -211,7 +235,7 @@ ${JSON.stringify(pairs.map((p, i) => ({ i, a: p.a, b: p.b })))}
 禁止語（使用不可）: ${JSON.stringify(avoid)}
 要件: 上記の厳守事項に従い、各テーマと中距離の関連を持つ独立した概念を ${n} 個、重複なしで。
 出力: {"concepts":["概念1", ...]}`;
-    const json = (await this.callJson(CONCEPT_SYSTEM, user, GENERATION_TEMPERATURE)) as {
+    const json = (await this.generateJson(CONCEPT_SYSTEM, user)) as {
       concepts?: unknown;
     };
     const arr = Array.isArray(json.concepts) ? json.concepts : [];
@@ -229,7 +253,7 @@ ${JSON.stringify(pairs.map((p, i) => ({ i, a: p.a, b: p.b })))}
 禁止語（使用不可）: ${JSON.stringify(avoid)}
 要件: 上記の厳守事項に従い、相手が置いていそうな概念の推測を ${n} 個、重複なしで。
 出力: {"guesses":["概念1", ...]}`;
-    const json = (await this.callJson(HYPO_SYSTEM, user, GENERATION_TEMPERATURE)) as {
+    const json = (await this.generateJson(HYPO_SYSTEM, user)) as {
       guesses?: unknown;
     };
     const arr = Array.isArray(json.guesses) ? json.guesses : [];
@@ -252,7 +276,7 @@ ${JSON.stringify(pairs.map((p, i) => ({ i, a: p.a, b: p.b })))}
 禁止語（使用不可）: ${JSON.stringify(avoid)}
 要件: 上記の厳守事項に従い、相手のライフに当たりそうな攻撃概念を 1 つ（20字以内）。
 出力: {"attack":"概念"}`;
-    const json = (await this.callJson(ATTACK_SYSTEM, user, GENERATION_TEMPERATURE)) as {
+    const json = (await this.generateJson(ATTACK_SYSTEM, user)) as {
       attack?: unknown;
     };
     if (typeof json.attack !== 'string' || !json.attack.trim()) throw new Error('invalid attack');
