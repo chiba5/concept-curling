@@ -15,32 +15,42 @@ const SCORE_SYSTEM = `あなたは概念間の関連度を厳密に数値化す�
 - 目安: 同一語 100 / ほぼ同一文脈 95〜99（例: 魔法とハリーポッター 98）/ 同分野の強い連想 85〜94（例: 魔法とドラクエ 90）/ 明確な連想 55〜80 / 弱い連想 30〜54 / ほぼ無関係 0〜29。
 - 「不明・判断困難」は 40〜55 の中域を用いる。`;
 
-const THEME_SYSTEM = `あなたは抽象と具象をバランスよく提示するキュレーター。
-出力は必ずJSONのみ。日本語で、意味の離れた短いテーマを毎回変えて生成する。`;
+const THEME_SYSTEM = `あなたは連想ゲームの出題者。出力は必ずJSONのみ。
+テーマは「誰でも知っている言葉」だけを使う:
+- 義務教育で習う語なら多少専門的でも可（例: 光合成、磁石、蒸発、台風）
+- 誰でも知る有名なゲーム・アニメ・童話などの固有名詞も可（例: マリオ、ドラえもん、桃太郎）
+- 造語・文学的な複合語・稀な動植物名・専門用語は不可（例: 樹影、無音帯、カラスウリ、筆触 は不可）
+- モノ（物体）や現象を中心に選ぶ。感情などの抽象概念はテーマ全体の半分まで
+日本語で、意味の離れた短いテーマを毎回変えて生成する。`;
 
 // テーマの多様性を構造的に担保するジャンル一覧。毎回ここからランダム抽選してプロンプトに指定する
-// （採点は temperature 0.2 の決定性が欲しいが、同じ理由で生成系は同じ語ばかり返すため）
+// （採点は temperature 0.2 の決定性が欲しいが、同じ理由で生成系は同じ語ばかり返すため）。
+// モノ・現象中心（本人指示）。誰でも知る語しか出ないよう、紛れやすいジャンルには例を添える
 const THEME_GENRES = [
-  '自然現象',
-  '道具',
-  '感情',
-  '場所',
-  '食',
-  '音楽',
-  '動物',
-  '植物',
-  '天体',
-  '職業',
-  '遊び',
+  '自然現象（雨・虹・雷など）',
+  '天気・季節',
+  '動物（誰でも知るもの）',
+  '植物（誰でも知るもの）',
+  '食べ物',
+  '飲み物',
   '乗り物',
-  '時間・季節',
+  '道具・家電',
+  '文房具',
+  'スポーツ',
+  '楽器',
   '身体',
-  '色彩',
-  '学問',
-  '神話・伝承',
-  '日常の習慣',
-  '芸術',
-  '光と影',
+  '天体・宇宙',
+  '場所・建物',
+  '職業',
+  '有名なゲーム作品・キャラクター',
+  '有名なアニメ・マンガ',
+  '昔話・童話',
+  '学校生活',
+  '祭り・行事',
+  '色・光',
+  '音',
+  'おもちゃ・遊び',
+  '衣服',
 ];
 
 /** 生成系（テーマ・概念・攻撃）用の温度。採点用の低温設定とは分離する */
@@ -164,13 +174,27 @@ ${JSON.stringify(pairs.map((p, i) => ({ i, a: p.a, b: p.b })))}
     return out;
   }
 
+  /** 直近に出したテーマの記憶（プロセス内）。「似たり寄ったり」を seed 的に排除するため、
+   * 次回以降の生成プロンプトへ禁止語として渡し、それでも被ったら 1 回だけ作り直す */
+  private recentThemes: string[] = [];
+  private static readonly RECENT_THEMES_MAX = 30;
+
   async generateThemes(count: number): Promise<string[]> {
+    const themes = await this.generateThemesOnce(count);
+    const fresh = themes.some((t) => this.recentThemes.includes(t))
+      ? await this.generateThemesOnce(count)
+      : themes;
+    this.recentThemes = [...this.recentThemes, ...fresh].slice(-OpenAIScorer.RECENT_THEMES_MAX);
+    return fresh;
+  }
+
+  private async generateThemesOnce(count: number): Promise<string[]> {
     const genres = sampleGenres(count);
     const user = `要件:
-- 日本語テーマを ${count} 個。長さ1〜6文字程度の短い名詞や造語。
+- 日本語テーマを ${count} 個。誰でも知っている短い名詞（1〜6文字程度）。
 - 各テーマはそれぞれ次のジャンルから 1 つずつ発想する: ${JSON.stringify(genres)}
-- 抽象/具象が混在し、互いに離れすぎず近すぎない中距離感。
-- 一般的な文脈で連想可能なもの。専門的すぎる語は避ける。ジャンル名そのものは使わない。
+- 互いに離れすぎず近すぎない中距離感。ジャンル名そのものは使わない。
+- 最近出したテーマ（避けること。同じ語も似た語も不可): ${JSON.stringify(this.recentThemes)}
 出力: {"themes":["テーマ1", ...]}`;
     const json = (await this.callJson(THEME_SYSTEM, user, GENERATION_TEMPERATURE)) as {
       themes?: unknown;

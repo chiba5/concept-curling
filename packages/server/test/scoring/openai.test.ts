@@ -78,6 +78,31 @@ describe('OpenAIScorer', () => {
     );
     await expect(dup.generateThemes(2)).rejects.toThrow();
   });
+  it('generateThemes: 直近テーマを記憶し、次回の依頼に禁止語として渡す', async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(openaiResponse({ themes: ['星座', '航海'] }))
+      .mockResolvedValueOnce(openaiResponse({ themes: ['雪', '祭り'] }));
+    const s = new OpenAIScorer(opts(fetchFn as typeof fetch));
+    await s.generateThemes(2);
+    await s.generateThemes(2);
+    const second = JSON.parse((fetchFn.mock.calls[1]?.[1] as RequestInit).body as string) as {
+      messages: { content: string }[];
+    };
+    expect(second.messages[1]?.content).toContain('星座');
+    expect(second.messages[1]?.content).toContain('避ける');
+  });
+  it('generateThemes: 直近テーマと被った応答は 1 回だけ作り直す', async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(openaiResponse({ themes: ['星座', '航海'] }))
+      .mockResolvedValueOnce(openaiResponse({ themes: ['星座', '茶道'] })) // 星座 が被り
+      .mockResolvedValueOnce(openaiResponse({ themes: ['雪', '祭り'] }));
+    const s = new OpenAIScorer(opts(fetchFn as typeof fetch));
+    await expect(s.generateThemes(2)).resolves.toEqual(['星座', '航海']);
+    await expect(s.generateThemes(2)).resolves.toEqual(['雪', '祭り']);
+    expect(fetchFn).toHaveBeenCalledTimes(3);
+  });
   it('timeout: never-resolve な fetch は attempt ごとに abort され、リトライ後 throw する', async () => {
     vi.useFakeTimers();
     try {
